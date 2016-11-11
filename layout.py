@@ -4,6 +4,7 @@ import random
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import matplotlib.animation
 import numpy as np
 
 # Currently from here. http://stackoverflow.com/a/27666700/2689797
@@ -163,7 +164,13 @@ class Layout:
 
         return node_pos, conn_origin, conn_dest
 
-    def draw(self, axes):
+    def draw(self, axes, interval=25):
+        self._draw_first(axes)
+        self.ani = matplotlib.animation.FuncAnimation(axes.figure, self._update,
+                                                      init_func = lambda :self._draw_first(axes),
+                                                      interval=interval, blit=False)
+
+    def _draw_first(self, axes):
         axes.clear()
         self._connection_lines.clear()
         self._node_scatter = None
@@ -194,7 +201,9 @@ class Layout:
         axes.set_xlim(-0.1, 1.1)
         axes.set_ylim(-0.1, 1.1)
 
-    def _update(self):
+    def _update(self,*args):
+        self.relax()
+
         node_pos, conn_origin, conn_dest = self._positions()
 
         for line,origin,dest in zip(self._connection_lines,conn_origin,conn_dest):
