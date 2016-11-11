@@ -138,7 +138,7 @@ class Layout:
             for node_name in condition[1]:
                 self.nodes[node_name].y = new_y
 
-    def _norm(val, range_min, range_max):
+    def _norm(self, val, range_min, range_max):
         if range_min == range_max:
             # Returns 0.5 for float, array of 0.5 for array
             return 0.5 * val/val
@@ -166,8 +166,8 @@ class Layout:
 
             x0 = self._norm(x0, *x_range)
             xf = self._norm(xf, *x_range)
-            y0 = self._norm(y0, *x_range)
-            yf = self._norm(yf, *x_range)
+            y0 = self._norm(y0, *y_range)
+            yf = self._norm(yf, *y_range)
 
             uniform = np.arange(0, 1, 0.01)
             line = axes.plot(x0 + (xf-x0)*uniform,
@@ -181,8 +181,8 @@ class Layout:
                      zorder = 2,
                      edgecolor = 'black')
 
-        axes.set_xlim(-1.1, 1.1)
-        axes.set_ylim(-1.1, 1.1)
+        axes.set_xlim(-0.1, 1.1)
+        axes.set_ylim(-0.1, 1.1)
 
 class LayoutNode:
     def __init__(self):
