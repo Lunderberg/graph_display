@@ -43,6 +43,7 @@ layout.draw(axes)
 plt.show(block=False)
 while plt.fignum_exists(fig.number):
     layout.relax()
-    layout.draw(axes)
+    layout._update()
+    #layout.draw(axes)
     fig.canvas.draw()
 #import IPython; IPython.embed()

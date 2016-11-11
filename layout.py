@@ -56,6 +56,9 @@ class Layout:
         self.spring_constant = 0.01
         self.repulsion_constant = 0.01
 
+        self._connection_lines = []
+        self._node_scatter = None
+
         self.gen_nodes()
 
     def gen_nodes(self):
@@ -139,50 +142,75 @@ class Layout:
                 self.nodes[node_name].y = new_y
 
     def _norm(self, val, range_min, range_max):
-        if range_min == range_max:
-            # Returns 0.5 for float, array of 0.5 for array
-            return 0.5 * val/val
-        else:
-            return (val - range_min)/(range_max - range_min)
+        output = (val - range_min)/(range_max - range_min)
+        # if range_max == range_min, we get nan, which we map to 0.5
+        if isinstance(output, np.ndarray):
+            output[np.isnan(output)] = 0.5
+        elif range_min == range_max:
+            output = 0.5
+        return output
+
+    def _positions(self):
+        node_pos = np.array([[node.x,node.y] for node in self.nodes.values()])
+        conn_origin = np.array([self.nodes[conn.origin.name].pos for conn in self.graph.connections])
+        conn_dest = np.array([self.nodes[conn.dest.name].pos for conn in self.graph.connections])
+
+        range_min = node_pos.min(axis=0)
+        range_max = node_pos.max(axis=0)
+        node_pos = self._norm(node_pos, range_min, range_max)
+        conn_origin = self._norm(conn_origin, range_min, range_max)
+        conn_dest = self._norm(conn_dest, range_min, range_max)
+
+        return node_pos, conn_origin, conn_dest
 
     def draw(self, axes):
-        x = [node.x for node in self.nodes.values()]
-        y = [node.y for node in self.nodes.values()]
-
-        x_range = min(x), max(x)
-        y_range = min(y), max(y)
-
-        x = self._norm(x, *x_range)
-        y = self._norm(y, *y_range)
-
         axes.clear()
-        for conn in self.graph.connections:
-            from_name = conn.origin.name
-            to_name = conn.dest.name
-            x0 = self.nodes[from_name].x
-            y0 = self.nodes[from_name].y
-            xf = self.nodes[to_name].x
-            yf = self.nodes[to_name].y
+        self._connection_lines.clear()
+        self._node_scatter = None
 
-            x0 = self._norm(x0, *x_range)
-            xf = self._norm(xf, *x_range)
-            y0 = self._norm(y0, *y_range)
-            yf = self._norm(yf, *y_range)
+        node_pos, conn_origin, conn_dest = self._positions()
 
+        for origin,dest in zip(conn_origin, conn_dest):
             uniform = np.arange(0, 1, 0.01)
-            line = axes.plot(x0 + (xf-x0)*uniform,
-                             y0 + (yf-y0)*uniform,
+
+            # Shape to match.
+            origin = origin.reshape((2,1))
+            dest = dest.reshape((2,1))
+            uniform = uniform.reshape((1,len(uniform)))
+
+            pos = origin + (dest-origin)*uniform
+
+            line = axes.plot(pos[0], pos[1],
                              zorder=1)
-            add_arrow_to_line2D(axes, line, arrow_locs=np.linspace(0, 1, 25))
+            self._connection_lines.append(line)
+            #add_arrow_to_line2D(axes, line, arrow_locs=np.linspace(0, 1, 25))
 
 
-        axes.scatter(x, y,
-                     sizes = [1000 for node in self.nodes.values()],
-                     zorder = 2,
-                     edgecolor = 'black')
+        self._node_scatter = axes.scatter(node_pos[0], node_pos[1],
+                                          sizes = [1000 for node in self.nodes.values()],
+                                          zorder = 2,
+                                          edgecolor = 'black')
 
         axes.set_xlim(-0.1, 1.1)
         axes.set_ylim(-0.1, 1.1)
+
+    def _update(self):
+        node_pos, conn_origin, conn_dest = self._positions()
+
+        for line,origin,dest in zip(self._connection_lines,conn_origin,conn_dest):
+            uniform = np.arange(0, 1, 0.01)
+
+            origin = origin.reshape((2,1))
+            dest = dest.reshape((2,1))
+            uniform = uniform.reshape((1,len(uniform)))
+
+            pos = origin + (dest-origin)*uniform
+
+            line[0].set_xdata(pos[0])
+            line[0].set_ydata(pos[1])
+
+        self._node_scatter.set_offsets(node_pos)
+
 
 class LayoutNode:
     def __init__(self):
