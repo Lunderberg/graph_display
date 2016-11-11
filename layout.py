@@ -200,6 +200,7 @@ class Layout:
 
         axes.set_xlim(-0.1, 1.1)
         axes.set_ylim(-0.1, 1.1)
+        axes.axis('off')
 
     def _update(self,*args):
         self.relax()

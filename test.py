@@ -2,6 +2,7 @@
 
 import random
 
+import matplotlib
 import matplotlib.pyplot as plt
 
 from graph import Graph
@@ -35,6 +36,7 @@ layout = Layout(graph)
 # layout.add_condition(('fixed_y', 'Output', 1.0))
 
 fig, axes = plt.subplots()
+fig.set_facecolor('white')
 layout.draw(axes)
 plt.show()
 
