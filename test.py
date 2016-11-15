@@ -10,7 +10,7 @@ from layout import Layout
 
 graph = Graph()
 
-for i in range(10):
+for i in range(11):
     graph.add_node(i)
 
 for i in range(20):

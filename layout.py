@@ -56,6 +56,7 @@ class Layout:
         self.conditions = []
         self.spring_constant = 0.01
         self.repulsion_constant = 0.01
+        self.pseudo_gravity = 0.05
 
         self._connection_lines = []
         self._node_scatter = None
@@ -84,18 +85,23 @@ class Layout:
     def add_condition(self, condition):
         self.conditions.append(condition)
 
-    def relax(self, n_iter=1, conditions=None, spring_constant=None, repulsion_constant=None):
+    def relax(self, n_iter=1, conditions=None,
+              spring_constant=None, repulsion_constant=None, pseudo_gravity=None):
+
+        if spring_constant is None:
+            spring_constant = self.spring_constant
+
+        if repulsion_constant is None:
+            repulsion_constant = self.repulsion_constant
+
+        if pseudo_gravity is None:
+            pseudo_gravity = self.pseudo_gravity
+
+        all_conditions = all_conditions = itertools.chain(
+            self.conditions, conditions if conditions is not None else [])
+
+
         for _ in range(n_iter):
-            if spring_constant is None:
-                spring_constant = self.spring_constant
-
-            if repulsion_constant is None:
-                repulsion_constant = self.repulsion_constant
-
-            all_conditions = all_conditions = itertools.chain(
-                self.conditions, conditions if conditions is not None else [])
-
-
             forces = {name:np.array([0,0], dtype='float64') for name in self.nodes}
 
             # Electrostatic repulsion
@@ -116,6 +122,12 @@ class Layout:
 
                 forces[to_name] += force
                 forces[from_name] -= force
+
+            # Pseudo-gravity, constant force toward zero
+            for name in self.nodes:
+                direction = self.nodes[name].pos
+                disp = np.copy(self.nodes[name].pos)
+                forces[name] -= pseudo_gravity/(1 + np.exp(-disp))
 
             # Update node positions
             for name,node in self.nodes.items():
