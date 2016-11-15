@@ -5,49 +5,9 @@ import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import matplotlib.animation
+from matplotlib.collections import EllipseCollection
+
 import numpy as np
-
-# Currently from here. http://stackoverflow.com/a/27666700/2689797
-# Replace with this one? http://stackoverflow.com/a/39782685/2689797
-def add_arrow_to_line2D(axes, line, arrow_locs=[0,2, 0.4, 0.6, 0.8],
-                        arrowstyle='-|>', arrowsize=1, transform=None):
-    if not isinstance(line, list) or not (isinstance(line[0], mlines.Line2D)):
-        raise ValueError('Expected a matpliblib.lines.Line2D object')
-
-    x = line[0].get_xdata()
-    y = line[0].get_ydata()
-
-    arrow_kw = dict(arrowstyle=arrowstyle, mutation_scale=10*arrowsize)
-
-    color = line[0].get_color()
-    use_multicolor_lines = isinstance(color, np.ndarray)
-
-    if use_multicolor_lines:
-        raise NotImplementedError('multicolor lines not supported')
-    else:
-        arrow_kw['color'] = color
-
-    linewidth = line[0].get_linewidth()
-    if isinstance(linewidth, np.ndarray):
-        raise NotImplementedError('multiwidth lines not supported')
-    else:
-        arrow_kw['linewidth'] = linewidth
-
-    if transform is None:
-        transform = axes.transData
-
-    arrows = []
-    cumsum = np.cumsum(np.sqrt(np.diff(x)**2 + np.diff(y)**2))
-    for loc in arrow_locs:
-        n = np.searchsorted(cumsum, cumsum[-1]*loc)
-        arrow_tail = (x[n], y[n])
-        arrow_head = (np.mean(x[n:n+2]), np.mean(y[n:n+2]))
-        patch = mpatches.FancyArrowPatch(arrow_tail, arrow_head, transform=transform,
-                                         **arrow_kw)
-        axes.add_patch(patch)
-        arrows.append(patch)
-    return arrows
-
 
 class Layout:
     def __init__(self, graph):
@@ -202,13 +162,15 @@ class Layout:
             line = axes.plot(pos[0], pos[1],
                              zorder=1)
             self._connection_lines.append(line)
-            #add_arrow_to_line2D(axes, line, arrow_locs=np.linspace(0, 1, 25))
 
 
-        self._node_scatter = axes.scatter(node_pos[0], node_pos[1],
-                                          sizes = [1000 for node in self.nodes.values()],
-                                          zorder = 2,
-                                          edgecolor = 'black')
+        self._node_scatter = EllipseCollection(
+            offsets=node_pos,
+            widths=0.05, heights=0.05, angles=0, units='xy',
+            facecolors='blue', edgecolor='black',
+            zorder=2,
+            transOffset=axes.transData)
+        axes.add_collection(self._node_scatter)
 
         axes.set_xlim(-0.1, 1.1)
         axes.set_ylim(-0.1, 1.1)
