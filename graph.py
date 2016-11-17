@@ -46,22 +46,10 @@ class Graph:
         self._connection_lines.clear()
         self._node_scatter = None
 
-        node_pos, conn_origin, conn_dest = self.layout.positions()
+        node_pos, connections_x, connections_y = self.layout.positions()
 
-        for origin,dest in zip(conn_origin, conn_dest):
-            uniform = np.arange(0, 1, 0.01)
-
-            # Shape to match.
-            origin = origin.reshape((2,1))
-            dest = dest.reshape((2,1))
-            uniform = uniform.reshape((1,len(uniform)))
-
-            pos = origin + (dest-origin)*uniform
-
-            line = axes.plot(pos[0], pos[1],
-                             zorder=1)
-            self._connection_lines.append(line)
-
+        self._connection_lines = axes.plot(connections_x.T, connections_y.T,
+                                           zorder=1, color='black')
 
         self._node_scatter = EllipseCollection(
             offsets=node_pos,
@@ -78,21 +66,20 @@ class Graph:
     def _update(self, *args):
         self.layout.relax()
 
-        node_pos, conn_origin, conn_dest = self.layout.positions()
-
-        for line,origin,dest in zip(self._connection_lines,conn_origin,conn_dest):
-            uniform = np.arange(0, 1, 0.01)
-
-            origin = origin.reshape((2,1))
-            dest = dest.reshape((2,1))
-            uniform = uniform.reshape((1,len(uniform)))
-
-            pos = origin + (dest-origin)*uniform
-
-            line[0].set_xdata(pos[0])
-            line[0].set_ydata(pos[1])
+        node_pos, connections_x, connections_y = self.layout.positions()
 
         self._node_scatter.set_offsets(node_pos)
+
+
+
+        if not hasattr(self,'done'):
+            import IPython; IPython.embed()
+            self.done = True
+
+
+        for line, xvals, yvals in zip(self._connection_lines, connections_x, connections_y):
+            line.set_xdata(xvals)
+            line.set_ydata(yvals)
 
 
 class LogicalNode:

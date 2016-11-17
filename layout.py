@@ -101,13 +101,22 @@ class Layout:
         conn_origin = np.array([self.nodes[from_index].pos for (from_index,to_index) in self.connections])
         conn_dest = np.array([self.nodes[to_index].pos for (from_index,to_index) in self.connections])
 
+        connections_x = np.array([(self.nodes[from_index].x,self.nodes[to_index].x)
+                                  for (from_index,to_index) in self.connections])
+        connections_y = np.array([(self.nodes[from_index].y,self.nodes[to_index].y)
+                                  for (from_index,to_index) in self.connections])
+
         range_min = node_pos.min(axis=0)
         range_max = node_pos.max(axis=0)
-        node_pos = self._norm(node_pos, range_min, range_max)
-        conn_origin = self._norm(conn_origin, range_min, range_max)
-        conn_dest = self._norm(conn_dest, range_min, range_max)
 
-        return node_pos, conn_origin, conn_dest
+        xmin,ymin = range_min
+        xmax,ymax = range_max
+
+        node_pos = self._norm(node_pos, range_min, range_max)
+        connections_x = self._norm(connections_x, xmin, xmax)
+        connections_y = self._norm(connections_y, ymin, ymax)
+
+        return node_pos, connections_x, connections_y
 
 
 class LayoutNode:
