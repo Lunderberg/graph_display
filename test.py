@@ -6,7 +6,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 from graph import Graph
-from layout import Layout
 
 graph = Graph()
 
@@ -29,15 +28,13 @@ for i in range(20):
 # graph.add_connection('Hidden', 'Output')
 
 
-layout = Layout(graph)
-
 # layout.add_condition(('fixed_y', 'Input', 0.0))
 # layout.add_condition(('fixed_y', 'Bias', 0.0))
 # layout.add_condition(('fixed_y', 'Output', 1.0))
 
 fig, axes = plt.subplots()
 fig.set_facecolor('white')
-layout.draw(axes)
+graph.draw(axes)
 plt.show()
 
 # plt.show(block=False)
