@@ -64,18 +64,13 @@ class Graph:
         axes.axis('off')
 
     def _update(self, *args):
-        self.layout.relax()
+        self.layout.relax_nodes()
+        self.layout.reset_edges()
+        #self.layout.relax_edges()
 
         node_pos, connections_x, connections_y = self.layout.positions()
 
         self._node_scatter.set_offsets(node_pos)
-
-
-
-        if not hasattr(self,'done'):
-            import IPython; IPython.embed()
-            self.done = True
-
 
         for line, xvals, yvals in zip(self._connection_lines, connections_x, connections_y):
             line.set_xdata(xvals)

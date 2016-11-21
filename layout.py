@@ -13,62 +13,79 @@ class Layout:
         self.repulsion_constant = 0.01
         self.pseudo_gravity = 0.05
 
+        self.num_control_points = 1
+
     def add_node(self):
-        layout_node = LayoutNode()
+        layout_node = LayoutPos()
         layout_node.x = random.uniform(0,1)
         layout_node.y = random.uniform(0,1)
         self.nodes.append(layout_node)
-
-    def add_connection(self, from_index, to_index):
-        self.connections.append( (from_index,to_index) )
 
     def reset_nodes(self):
         for node in self.nodes:
             node.x = random.uniform(0,1)
             node.y = random.uniform(0,1)
 
-    def reset_edges(self):
-        raise NotImplementedError('reset_edges not implemented')
+        self.reset_edges()
+
+    def add_connection(self, from_index, to_index):
+        control_points = self._gen_control_points(from_index, to_index)
+        self.connections.append( LayoutConn(from_index,to_index, control_points) )
+
+    def reset_edges(self, num_control_points = None):
+        if num_control_points is None:
+            num_control_points = self.num_control_points
+
+        for conn in self.connections:
+            conn.control_points = self._gen_control_points(conn.from_index, conn.to_index)
+
+    def _gen_control_points(self, from_index, to_index):
+        initial = self.nodes[from_index].pos
+        final = self.nodes[to_index].pos
+        uniform = np.arange(0, 1, 1.0/(self.num_control_points+1))[1:]
+        return [LayoutPos(initial + num*(final-initial)) for num in uniform]
 
     def add_condition(self, condition):
         self.conditions.append(condition)
 
-    def relax(self, n_iter=1, conditions=None):
+    def relax_nodes(self, conditions=None):
         conditions = conditions if conditions is not None else []
         all_conditions = all_conditions = itertools.chain(self.conditions, conditions)
 
-        for _ in range(n_iter):
-            forces = [np.array([0,0], dtype='float64') for node in self.nodes]
+        forces = [np.array([0,0], dtype='float64') for node in self.nodes]
 
-            # Electrostatic repulsion
-            for ((i_a,node_a), (i_b,node_b)) in itertools.combinations(enumerate(self.nodes), 2):
-                disp = node_b.pos - node_a.pos
-                dist2 = np.dot(disp, disp)
-                unit_vec = disp/np.sqrt(dist2)
-                force = self.repulsion_constant * unit_vec / dist2
-                forces[i_a] -= force
-                forces[i_b] += force
+        # Electrostatic repulsion
+        for ((i_a,node_a), (i_b,node_b)) in itertools.combinations(enumerate(self.nodes), 2):
+            disp = node_b.pos - node_a.pos
+            dist2 = np.dot(disp, disp)
+            unit_vec = disp/np.sqrt(dist2)
+            force = self.repulsion_constant * unit_vec / dist2
+            forces[i_a] -= force
+            forces[i_b] += force
 
-            # Spring attraction
-            for (from_index, to_index) in self.connections:
-                disp = self.nodes[to_index].pos - self.nodes[from_index].pos
-                force = -self.spring_constant * disp
+        # Spring attraction
+        for conn in self.connections:
+            disp = self.nodes[conn.to_index].pos - self.nodes[conn.from_index].pos
+            force = -self.spring_constant * disp
 
-                forces[to_index] += force
-                forces[from_index] -= force
+            forces[conn.to_index] += force
+            forces[conn.from_index] -= force
 
-            # Pseudo-gravity, constant force toward zero
-            for i,node in enumerate(self.nodes):
-                disp = node.pos
-                forces[i] -= self.pseudo_gravity/(1 + np.exp(-disp))
+        # Pseudo-gravity, constant force toward zero
+        for i,node in enumerate(self.nodes):
+            disp = node.pos
+            forces[i] -= self.pseudo_gravity/(1 + np.exp(-disp))
 
-            # Update node positions
-            for force,node in zip(forces, self.nodes):
-                node.pos += force
+        # Update node positions
+        for force,node in zip(forces, self.nodes):
+            node.pos += force
 
-            # Apply conditions
-            for condition in all_conditions:
-                self._apply_condition(condition)
+        # Apply conditions
+        for condition in all_conditions:
+            self._apply_condition(condition)
+
+    def relax_edges(self):
+        pass
 
     def _apply_condition(self, condition):
         if condition[0] == 'fixed_x':
@@ -98,13 +115,18 @@ class Layout:
 
     def positions(self):
         node_pos = np.array([node.pos for node in self.nodes])
-        conn_origin = np.array([self.nodes[from_index].pos for (from_index,to_index) in self.connections])
-        conn_dest = np.array([self.nodes[to_index].pos for (from_index,to_index) in self.connections])
+        conn_origin = np.array([self.nodes[conn.from_index].pos for conn in self.connections])
+        conn_dest = np.array([self.nodes[conn.to_index].pos for conn in self.connections])
 
-        connections_x = np.array([(self.nodes[from_index].x,self.nodes[to_index].x)
-                                  for (from_index,to_index) in self.connections])
-        connections_y = np.array([(self.nodes[from_index].y,self.nodes[to_index].y)
-                                  for (from_index,to_index) in self.connections])
+        connections_x = np.array([(self.nodes[conn.from_index].x,
+                                   *[p.x for p in conn.control_points],
+                                   self.nodes[conn.to_index].x)
+                                  for conn in self.connections])
+
+        connections_y = np.array([(self.nodes[conn.from_index].y,
+                                   *[p.y for p in conn.control_points],
+                                   self.nodes[conn.to_index].y)
+                                  for conn in self.connections])
 
         range_min = node_pos.min(axis=0)
         range_max = node_pos.max(axis=0)
@@ -119,9 +141,12 @@ class Layout:
         return node_pos, connections_x, connections_y
 
 
-class LayoutNode:
-    def __init__(self):
-        self.pos = np.array([0,0],dtype='float64')
+class LayoutPos:
+    def __init__(self, pos=None):
+        if pos is None:
+            self.pos = np.array([0,0],dtype='float64')
+        else:
+            self.pos = np.array(pos, dtype='float64')
 
     @property
     def x(self):
@@ -138,3 +163,9 @@ class LayoutNode:
     @y.setter
     def y(self, val):
         self.pos[1] = val
+
+class LayoutConn:
+    def __init__(self, from_index, to_index, control_points):
+        self.from_index = from_index
+        self.to_index = to_index
+        self.control_points = control_points
