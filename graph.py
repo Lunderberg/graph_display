@@ -65,8 +65,8 @@ class Graph:
 
     def _update(self, frame_num):
         self.layout.relax()
-        if frame_num%10 == 0:
-            self.layout.reset_edges()
+        # if frame_num%10 == 0:
+        #     self.layout.reset_edges()
 
         node_pos, connections_x, connections_y = self.layout.positions()
 
