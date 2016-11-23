@@ -13,7 +13,10 @@ class Layout:
         self.repulsion_constant = 0.01
         self.pseudo_gravity = 0.05
 
-        self.num_control_points = 1
+        self.num_control_points = 0
+        # List of lists of nodes.
+        # Each list corresponds to the virtual nodes within one connection.
+        self.virtual_nodes = []
 
     def add_node(self):
         layout_node = LayoutPos()
@@ -29,63 +32,104 @@ class Layout:
         self.reset_edges()
 
     def add_connection(self, from_index, to_index):
+        self.connections.append( (from_index,to_index) )
         control_points = self._gen_control_points(from_index, to_index)
-        self.connections.append( LayoutConn(from_index,to_index, control_points) )
+        self.virtual_nodes.append(control_points)
 
     def reset_edges(self, num_control_points = None):
         if num_control_points is None:
             num_control_points = self.num_control_points
 
-        for conn in self.connections:
-            conn.control_points = self._gen_control_points(conn.from_index, conn.to_index)
+        self.virtual_nodes = [self._gen_control_points(from_index, to_index)
+                              for (from_index, to_index) in self.connections]
 
     def _gen_control_points(self, from_index, to_index):
         initial = self.nodes[from_index].pos
         final = self.nodes[to_index].pos
-        uniform = np.arange(0, 1, 1.0/(self.num_control_points+1))[1:]
+        uniform = np.linspace(0, 1, self.num_control_points+2)[1:-1]
         return [LayoutPos(initial + num*(final-initial)) for num in uniform]
+
+    def _all_nodes(self, with_actual=True, with_virtual=False):
+        yield from self.nodes
+        if with_virtual:
+            yield from self._all_virtual_nodes()
+
+    def _all_virtual_nodes(self):
+        yield from itertools.chain(*self.virtual_nodes)
+
+    def _all_equal_pairs(self):
+        yield from itertools.combinations(self.nodes,2)
+        yield from itertools.combinations(self._all_virtual_nodes(), 2)
+
+    def _all_oneway_pairs(self):
+        yield from itertools.product(self.nodes, self._all_virtual_nodes())
+
+    def _connection_pairs(self):
+        for (from_node, to_node) in self.connections:
+            yield (self.nodes[from_node], self.nodes[to_node])
+
+        for control_points in self.virtual_nodes:
+            yield from zip(control_points[1:], control_points[:-1])
+
+    def _connections_oneway(self):
+        for conn, control_points in zip(self.connections, self.virtual_nodes):
+            if control_points:
+                yield (self.nodes[conn[0]], control_points[0])
+                yield (self.nodes[conn[1]], control_points[-1])
 
     def add_condition(self, condition):
         self.conditions.append(condition)
 
-    def relax_nodes(self, conditions=None):
+    def relax(self, conditions=None):
         conditions = conditions if conditions is not None else []
-        all_conditions = all_conditions = itertools.chain(self.conditions, conditions)
+        all_conditions = itertools.chain(self.conditions, conditions)
 
-        forces = [np.array([0,0], dtype='float64') for node in self.nodes]
-
-        # Electrostatic repulsion
-        for ((i_a,node_a), (i_b,node_b)) in itertools.combinations(enumerate(self.nodes), 2):
+        # Electrostatic repulsion between pairs
+        for (node_a, node_b) in self._all_equal_pairs():
             disp = node_b.pos - node_a.pos
+            dist2 = np.dot(disp, disp)
+            if dist2 > 0:
+                unit_vec = disp/np.sqrt(dist2)
+                force = self.repulsion_constant * unit_vec / dist2
+            else:
+                force = np.array([1,0])
+
+            node_a.pos -= force
+            node_b.pos += force
+
+        # Electrostatic repulsion, one way.
+        # Nodes push virtual nodes, but not the other way around.#
+        for (node_from, node_to) in self._all_oneway_pairs():
+            disp = node_to.pos - node_from.pos
             dist2 = np.dot(disp, disp)
             unit_vec = disp/np.sqrt(dist2)
             force = self.repulsion_constant * unit_vec / dist2
-            forces[i_a] -= force
-            forces[i_b] += force
+            node_to.pos += force
 
-        # Spring attraction
-        for conn in self.connections:
-            disp = self.nodes[conn.to_index].pos - self.nodes[conn.from_index].pos
+        # Spring attraction between pairs
+        for (node_a, node_b) in self._connection_pairs():
+            disp = node_b.pos - node_a.pos
             force = -self.spring_constant * disp
 
-            forces[conn.to_index] += force
-            forces[conn.from_index] -= force
+            node_a.pos -= force
+            node_b.pos += force
+
+        # Spring attraction, one way.
+        # Nodes pull virtual nodes, but not the other way around.
+        for (node_from, node_to) in self._connections_oneway():
+            disp = node_to.pos - node_from.pos
+            force = -self.spring_constant * disp
+
+            node_to.pos -= force
 
         # Pseudo-gravity, constant force toward zero
-        for i,node in enumerate(self.nodes):
+        for node in self._all_nodes(with_virtual=True):
             disp = node.pos
-            forces[i] -= self.pseudo_gravity/(1 + np.exp(-disp))
-
-        # Update node positions
-        for force,node in zip(forces, self.nodes):
-            node.pos += force
+            node.pos -= self.pseudo_gravity/(1 + np.exp(-disp))
 
         # Apply conditions
         for condition in all_conditions:
             self._apply_condition(condition)
-
-    def relax_edges(self):
-        pass
 
     def _apply_condition(self, condition):
         if condition[0] == 'fixed_x':
@@ -115,18 +159,18 @@ class Layout:
 
     def positions(self):
         node_pos = np.array([node.pos for node in self.nodes])
-        conn_origin = np.array([self.nodes[conn.from_index].pos for conn in self.connections])
-        conn_dest = np.array([self.nodes[conn.to_index].pos for conn in self.connections])
+        conn_origin = np.array([self.nodes[from_index].pos for (from_index, to_index) in self.connections])
+        conn_dest = np.array([self.nodes[to_index].pos for (from_index, to_index) in self.connections])
 
-        connections_x = np.array([(self.nodes[conn.from_index].x,
-                                   *[p.x for p in conn.control_points],
-                                   self.nodes[conn.to_index].x)
-                                  for conn in self.connections])
+        connections_x = np.array([(self.nodes[from_index].x,
+                                   *[p.x for p in control_points],
+                                   self.nodes[to_index].x)
+                                  for (from_index,to_index),control_points in zip(self.connections, self.virtual_nodes)])
 
-        connections_y = np.array([(self.nodes[conn.from_index].y,
-                                   *[p.y for p in conn.control_points],
-                                   self.nodes[conn.to_index].y)
-                                  for conn in self.connections])
+        connections_y = np.array([(self.nodes[from_index].y,
+                                   *[p.y for p in control_points],
+                                   self.nodes[to_index].y)
+                                  for (from_index,to_index),control_points in zip(self.connections, self.virtual_nodes)])
 
         range_min = node_pos.min(axis=0)
         range_max = node_pos.max(axis=0)
@@ -163,9 +207,3 @@ class LayoutPos:
     @y.setter
     def y(self, val):
         self.pos[1] = val
-
-class LayoutConn:
-    def __init__(self, from_index, to_index, control_points):
-        self.from_index = from_index
-        self.to_index = to_index
-        self.control_points = control_points

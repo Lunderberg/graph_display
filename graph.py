@@ -63,10 +63,10 @@ class Graph:
         axes.set_ylim(-0.1, 1.1)
         axes.axis('off')
 
-    def _update(self, *args):
-        self.layout.relax_nodes()
-        self.layout.reset_edges()
-        #self.layout.relax_edges()
+    def _update(self, frame_num):
+        self.layout.relax()
+        if frame_num%10 == 0:
+            self.layout.reset_edges()
 
         node_pos, connections_x, connections_y = self.layout.positions()
 
