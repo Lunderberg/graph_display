@@ -14,7 +14,7 @@ class Layout:
         self.repulsion_constant = 0.01
         self.pseudo_gravity = 0.05
 
-        self.num_control_points = 3
+        self.num_control_points = 2
         # List of lists of nodes.
         # Each list corresponds to the virtual nodes within one connection.
         self.virtual_nodes = []
@@ -109,7 +109,7 @@ class Layout:
         # Pseudo-gravity, constant force toward zero
         for node in self._all_nodes(with_virtual=True):
             disp = node.pos
-            node.pos -= self.pseudo_gravity/(1 + np.exp(-disp))
+            node.pos -= self.pseudo_gravity*len(self.nodes)/(1 + np.exp(-disp))
 
         # Apply conditions
         for condition in all_conditions:
