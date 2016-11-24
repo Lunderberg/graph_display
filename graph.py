@@ -12,6 +12,7 @@ class Graph:
 
         self.layout = Layout()
         self._connection_lines = []
+        self._arrow_heads = []
         self._node_scatter = None
 
     def add_node(self, node_name):
@@ -46,10 +47,25 @@ class Graph:
         self._connection_lines.clear()
         self._node_scatter = None
 
+
         node_pos, connections_x, connections_y = self.layout.positions()
 
-        self._connection_lines = axes.plot(connections_x.T, connections_y.T,
-                                           zorder=1, color='black')
+        self._connection_lines = []
+        self._arrow_heads = []
+
+        opt = dict(color = 'black',
+                   arrowstyle = 'simple, head_width=.75, head_length=.75',
+                   connectionstyle = 'arc3, rad=0',
+                   shrinkA = 0,
+                   shrinkB = 0)
+
+        for xvals, yvals in zip(connections_x, connections_y):
+            self._connection_lines.append(
+                axes.plot(xvals, yvals, zorder=1, color='black')[0])
+            self._arrow_heads.append(
+                axes.annotate('', xy=(xvals[-1], yvals[-1]), xycoords='data',
+                              xytext=(xvals[-2], yvals[-2]), textcoords='data',
+                              arrowprops=opt))
 
         self._node_scatter = EllipseCollection(
             offsets=node_pos,
@@ -65,16 +81,17 @@ class Graph:
 
     def _update(self, frame_num):
         self.layout.relax()
-        # if frame_num%10 == 0:
-        #     self.layout.reset_edges()
 
         node_pos, connections_x, connections_y = self.layout.positions()
 
         self._node_scatter.set_offsets(node_pos)
 
-        for line, xvals, yvals in zip(self._connection_lines, connections_x, connections_y):
+        for line, arrow_head, xvals, yvals in zip(self._connection_lines, self._arrow_heads,
+                                                 connections_x, connections_y):
             line.set_xdata(xvals)
             line.set_ydata(yvals)
+            arrow_head.xy = (xvals[-1], yvals[-1])
+            arrow_head.xyann = (xvals[-2], yvals[-2])
 
 
 class LogicalNode:
