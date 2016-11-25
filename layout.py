@@ -150,6 +150,17 @@ class Layout:
         return output
 
     def positions(self):
+        """
+        Returns the positions of all nodes and connections, ready to draw.
+        There are three return values.
+        1. node_pos, an array of positions of each node.
+           nodes_pos[i][0] is the x position of the i-ith node.
+           nodes_pos[i][1] is the y position of the i-ith node.
+
+        2. connections, an array of the positions of the edges.
+           connections[i][j][0] is the x position of the j-th point in the i-th connection
+           connections[i][j][1] is the y position of the j-th point in the i-th connection
+        """
         node_pos = np.array([node.pos for node in self.nodes])
         conn_origin = np.array([self.nodes[from_index].pos for (from_index, to_index) in self.connections])
         conn_dest = np.array([self.nodes[to_index].pos for (from_index, to_index) in self.connections])
@@ -162,26 +173,29 @@ class Layout:
         range_min = np.array([xmin,ymin])
         range_max = np.array([xmax,ymax])
 
-        connections_x = []
-        connections_y = []
+        connections = []
         for i,_ in enumerate(self.connections):
-            new_x,new_y = self._spline(i,
-                                       self.rel_node_size*(xmax-xmin),
-                                       self.rel_node_size*(ymax-ymin))
-            connections_x.append(new_x)
-            connections_y.append(new_y)
+            new_spline = self._spline(i,
+                                      self.rel_node_size*(xmax-xmin),
+                                      self.rel_node_size*(ymax-ymin))
+            connections.append(new_spline)
 
-        connections_x = np.array(connections_x)
-        connections_y = np.array(connections_y)
+        connections = np.array(connections)
 
 
         node_pos = self._norm(node_pos, range_min, range_max)
-        connections_x = self._norm(connections_x, xmin, xmax)
-        connections_y = self._norm(connections_y, ymin, ymax)
+        connections = self._norm(connections, range_min, range_max)
 
-        return node_pos, connections_x, connections_y
+        return node_pos, connections
 
     def _spline(self, i, node_x_size, node_y_size):
+        """
+        node_x_size, node_y_size are the size in real units of each node.
+
+        Returns the spline representing the i-th edge.
+        retval[j][0] is the x point of the j-th spline point.
+        retval[j][1] is the y point of the j-th spline point.
+        """
         from_index,to_index = self.connections[i]
         control_points = self.virtual_nodes[i]
 
@@ -219,7 +233,7 @@ class Layout:
             x_spline = scipy.interpolate.spline(t, x, nt)
             y_spline = scipy.interpolate.spline(t, y, nt)
 
-        return x_spline, y_spline
+        return np.array([x_spline, y_spline]).T
 
     def _ellipse_intersection(self, ellipse_center, outside_point, width, height):
         x0,y0 = ellipse_center

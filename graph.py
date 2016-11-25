@@ -59,7 +59,7 @@ class Graph:
         self._node_scatter = None
 
 
-        node_pos, connections_x, connections_y = self.layout.positions()
+        node_pos, connections = self.layout.positions()
 
         self._connection_lines = []
         self._arrow_heads = []
@@ -70,7 +70,9 @@ class Graph:
                    shrinkA = 0,
                    shrinkB = 0)
 
-        for xvals, yvals in zip(connections_x, connections_y):
+        for spline in connections:
+            xvals = spline[:,0]
+            yvals = spline[:,1]
             self._connection_lines.append(
                 axes.plot(xvals, yvals, zorder=1, color='black')[0])
             self._arrow_heads.append(
@@ -95,12 +97,14 @@ class Graph:
     def _update(self, frame_num):
         self.layout.relax()
 
-        node_pos, connections_x, connections_y = self.layout.positions()
+        node_pos, connections = self.layout.positions()
 
         self._node_scatter.set_offsets(node_pos)
 
-        for line, arrow_head, xvals, yvals in zip(self._connection_lines, self._arrow_heads,
-                                                 connections_x, connections_y):
+        for line, arrow_head, spline in zip(self._connection_lines, self._arrow_heads,
+                                            connections):
+            xvals = spline[:,0]
+            yvals = spline[:,1]
             line.set_xdata(xvals)
             line.set_ydata(yvals)
             arrow_head.xy = (xvals[-1], yvals[-1])
