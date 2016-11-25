@@ -1,9 +1,9 @@
 import numpy as np
-import matplotlib.animation
 from matplotlib.collections import EllipseCollection
 import matplotlib.pyplot as plt
 
 from layout import Layout
+from fixed_func_animation import FixedFuncAnimation
 
 class Graph:
     def __init__(self):
@@ -43,16 +43,15 @@ class Graph:
         self._node_size = val
         self.layout.rel_node_size = val
 
-
     @property
     def nodes(self):
         return self._nodes.values()
 
     def draw(self, axes, interval=25):
         self._draw_first(axes)
-        self.ani = matplotlib.animation.FuncAnimation(axes.figure, self._update,
-                                                      init_func = lambda :self._draw_first(axes),
-                                                      interval=interval, blit=False)
+        self.ani = FixedFuncAnimation(axes.figure, self._update,
+                                      init_func = lambda :self._draw_first(axes),
+                                      interval=interval, blit=True)
 
     def _draw_first(self, axes):
         axes.clear()
@@ -91,6 +90,8 @@ class Graph:
         axes.set_ylim(-0.1, 1.1)
         axes.axis('off')
 
+        return self._connection_lines + self._arrow_heads + [self._node_scatter]
+
     def _update(self, frame_num):
         self.layout.relax()
 
@@ -104,6 +105,8 @@ class Graph:
             line.set_ydata(yvals)
             arrow_head.xy = (xvals[-1], yvals[-1])
             arrow_head.xyann = (xvals[-2], yvals[-2])
+
+        return self._connection_lines + self._arrow_heads + [self._node_scatter]
 
 
 class LogicalNode:
