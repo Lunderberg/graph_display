@@ -14,6 +14,9 @@ class Layout:
         self.repulsion_constant = 0.01
         self.pseudo_gravity = 0.05
 
+        # Size relative to the full extent between min and max in x,y
+        self.rel_node_size = 0.05
+
         self.num_control_points = 2
         # List of lists of nodes.
         # Each list corresponds to the virtual nodes within one connection.
@@ -151,23 +154,6 @@ class Layout:
         conn_origin = np.array([self.nodes[from_index].pos for (from_index, to_index) in self.connections])
         conn_dest = np.array([self.nodes[to_index].pos for (from_index, to_index) in self.connections])
 
-        connections_x = []
-        connections_y = []
-        for i,_ in enumerate(self.connections):
-            new_x,new_y = self._spline(i)
-            connections_x.append(new_x)
-            connections_y.append(new_y)
-
-        connections_x = np.array(connections_x)
-        connections_y = np.array(connections_y)
-
-        # Virtual nodes get pushed aside way too easily
-        # Zoom is way too jumpy with this method, but I should fix that at some point.
-        # xmin = connections_x.min()
-        # xmax = connections_x.max()
-        # ymin = connections_y.min()
-        # ymax = connections_y.max()
-
         xmin = node_pos[:,0].min()
         xmax = node_pos[:,0].max()
         ymin = node_pos[:,1].min()
@@ -176,13 +162,26 @@ class Layout:
         range_min = np.array([xmin,ymin])
         range_max = np.array([xmax,ymax])
 
+        connections_x = []
+        connections_y = []
+        for i,_ in enumerate(self.connections):
+            new_x,new_y = self._spline(i,
+                                       self.rel_node_size*(xmax-xmin),
+                                       self.rel_node_size*(ymax-ymin))
+            connections_x.append(new_x)
+            connections_y.append(new_y)
+
+        connections_x = np.array(connections_x)
+        connections_y = np.array(connections_y)
+
+
         node_pos = self._norm(node_pos, range_min, range_max)
         connections_x = self._norm(connections_x, xmin, xmax)
         connections_y = self._norm(connections_y, ymin, ymax)
 
         return node_pos, connections_x, connections_y
 
-    def _spline(self, i):
+    def _spline(self, i, node_x_size, node_y_size):
         from_index,to_index = self.connections[i]
         control_points = self.virtual_nodes[i]
 
@@ -195,6 +194,15 @@ class Layout:
         y.insert(0, self.nodes[from_index].y)
         y.append(self.nodes[to_index].y)
         y = np.array(y)
+
+        p0 = self._ellipse_intersection( (x[0],y[0]), (x[1],y[1]),
+                                         node_x_size, node_y_size)
+        pf = self._ellipse_intersection( (x[-1],y[-1]), (x[-2],y[-2]),
+                                         node_x_size, node_y_size)
+        x[0] = p0[0]
+        y[0] = p0[1]
+        x[-1] = pf[0]
+        y[-1] = pf[1]
 
         t = np.zeros(x.shape)
         t[1:] = np.sqrt((x[1:]-x[:-1])**2 + (y[1:]-y[:-1])**2)
@@ -212,6 +220,24 @@ class Layout:
             y_spline = scipy.interpolate.spline(t, y, nt)
 
         return x_spline, y_spline
+
+    def _ellipse_intersection(self, ellipse_center, outside_point, width, height):
+        x0,y0 = ellipse_center
+        x1,y1 = outside_point
+
+        if x0==x1 and y0==y1:
+            return ellipse_center
+
+        q = ((y1-y0)/(x1-x0))**2
+        xdiff = np.sqrt(width**2*height**2/(4*height**2 + 4*width**2*q))
+        ydiff = np.sqrt(width**2*height**2/(4*width**2 + 4*height**2/q))
+
+        xdiff *= np.sign(x1-x0)
+        ydiff *= np.sign(y1-y0)
+
+        return (x0+xdiff, y0+ydiff)
+
+
 
 
 

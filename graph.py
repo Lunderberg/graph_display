@@ -11,6 +11,8 @@ class Graph:
         self.connections = []
 
         self.layout = Layout()
+        self.node_size = 0.05
+
         self._connection_lines = []
         self._arrow_heads = []
         self._node_scatter = None
@@ -31,6 +33,16 @@ class Graph:
         self.connections.append(conn)
 
         self.layout.add_connection(origin.index, dest.index)
+
+    @property
+    def node_size(self):
+        return self._node_size
+
+    @node_size.setter
+    def node_size(self, val):
+        self._node_size = val
+        self.layout.rel_node_size = val
+
 
     @property
     def nodes(self):
@@ -69,7 +81,7 @@ class Graph:
 
         self._node_scatter = EllipseCollection(
             offsets=node_pos,
-            widths=0.05, heights=0.05, angles=0, units='xy',
+            widths=self.node_size, heights=self.node_size, angles=0, units='xy',
             facecolors='blue', edgecolor='black',
             zorder=2,
             transOffset=axes.transData)
