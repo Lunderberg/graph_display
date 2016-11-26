@@ -12,7 +12,7 @@ class Layout:
         self.conditions = []
         self.spring_constant = 0.01
         self.repulsion_constant = 0.01
-        self.pseudo_gravity = 0.05
+        self.pseudo_gravity_constant = 0.05
 
         # Size relative to the full extent between min and max in x,y
         self.rel_node_size = 0.05
@@ -112,7 +112,7 @@ class Layout:
         # Pseudo-gravity, constant force toward zero
         for node in self._all_nodes(with_virtual=True):
             disp = node.pos
-            node.pos -= self.pseudo_gravity*len(self.nodes)/(1 + np.exp(-disp))
+            node.pos -= self.pseudo_gravity_constant*len(self.nodes)/(1 + np.exp(-np.abs(disp)))
 
         # Apply conditions
         for condition in all_conditions:

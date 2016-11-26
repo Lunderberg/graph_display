@@ -9,7 +9,7 @@ from graph import Graph
 
 graph = Graph()
 
-for i in range(11):
+for i in range(10):
     graph.add_node(i)
 
 for i in range(20):

@@ -2,7 +2,8 @@ import numpy as np
 from matplotlib.collections import EllipseCollection
 import matplotlib.pyplot as plt
 
-from layout import Layout
+#from layout import Layout
+from clayout import Layout
 from fixed_func_animation import FixedFuncAnimation
 
 class Graph:
