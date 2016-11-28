@@ -6,7 +6,7 @@
 Layout::Layout()
   : gen(std::random_device()()),
     spring_constant(0.01), repulsion_constant(0.01), pseudo_gravity_constant(0.01),
-    num_control_points(1), num_spline_points(10), rel_node_size(0.05) { }
+    num_control_points(2), num_spline_points(10), rel_node_size(0.05) { }
 
 void Layout::add_node() {
   Node new_node;
@@ -157,8 +157,6 @@ void Layout::normalize(std::vector<GVector<2> >& node_pos, std::vector<GVector<2
     ymin = std::min(ymin, pos.Y());
     ymax = std::max(ymax, pos.Y());
   }
-
-  std::cout << "X: (" << xmin << ", " << xmax << ")\tY: (" << ymin << ", " << ymax << ")" << std::endl;
 
   for(auto& pos : node_pos) {
     pos.X() = (pos.X() - xmin)/(xmax-xmin);
