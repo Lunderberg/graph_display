@@ -7,6 +7,7 @@ import scipy.interpolate
 from clayout import Layout
 from fixed_func_animation import FixedFuncAnimation
 
+
 class Graph:
     def __init__(self):
         self._nodes = {}
@@ -93,16 +94,18 @@ class Graph:
                    arrowstyle = 'simple, head_width=.75, head_length=.75',
                    connectionstyle = 'arc3, rad=0',
                    shrinkA = 0,
-                   shrinkB = 0)
+                   shrinkB = 0,
+                   animated = True)
 
         for spline in self._gen_splines(connections):
             xvals = spline[:,0]
             yvals = spline[:,1]
             self._connection_lines.append(
-                axes.plot(xvals, yvals, zorder=1, color='black')[0])
+                axes.plot(xvals, yvals, zorder=1, color='black', animated=True)[0])
             self._arrow_heads.append(
                 axes.annotate('', xy=(xvals[-1], yvals[-1]), xycoords='data',
                               xytext=(xvals[-2], yvals[-2]), textcoords='data',
+                              animated=True,
                               arrowprops=opt))
 
         self._node_scatter = EllipseCollection(
@@ -110,7 +113,7 @@ class Graph:
             widths=self.node_size, heights=self.node_size, angles=0, units='xy',
             facecolors='blue', edgecolor='black',
             zorder=2,
-            transOffset=axes.transData)
+            transOffset=axes.transData, animated=True)
         axes.add_collection(self._node_scatter)
 
         axes.set_xlim(-0.1, 1.1)
@@ -120,7 +123,8 @@ class Graph:
         return self._connection_lines + self._arrow_heads + [self._node_scatter]
 
     def _update(self, frame_num):
-        self.layout.relax()
+        for i in range(5):
+            self.layout.relax()
 
         node_pos, connections = self.layout.positions()
 
