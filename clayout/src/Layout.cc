@@ -6,7 +6,7 @@
 Layout::Layout()
   : gen(std::random_device()()),
     spring_constant(0.01), repulsion_constant(0.01), pseudo_gravity_constant(0.01),
-    num_control_points(1), num_spline_points(10), rel_node_size(0.05) { }
+    num_control_points(2), num_spline_points(10), rel_node_size(0.05) { }
 
 void Layout::add_node() {
   Node new_node;
@@ -132,17 +132,39 @@ DrawingPositions Layout::positions() const {
     output.node_pos.push_back(node.pos);
   }
 
-  output.num_points_per_connection = num_spline_points;
-  output.connection_points.reserve(num_spline_points * connections.size());
+  output.num_points_per_connection = num_control_points+2;
+  output.connection_points.reserve((num_control_points+2) * connections.size());
   for(auto& conn : connections) {
-    auto conn_spline = spline(conn);
-    std::copy(conn_spline.begin(), conn_spline.end(),
-              std::back_inserter(output.connection_points));
+    output.connection_points.push_back(nodes[conn.from_index].pos);
+    for(int i=0; i<num_control_points; i++) {
+      output.connection_points.push_back(virtual_nodes[conn.virtual_node_index+i].pos);
+    }
+    output.connection_points.push_back(nodes[conn.to_index].pos);
   }
 
   normalize(output.node_pos, output.connection_points);
 
   return output;
+}
+
+void Layout::adjust_endpoints(std::vector<GVector<2> >& conn_pos, double width, double height) const {
+  for(unsigned int i=0; i<conn_pos.size(); i+=(num_control_points+2)) {
+    conn_pos[i] = ellipse_intersection(conn_pos[i], conn_pos[i+1], width, height);
+    conn_pos[i+num_control_points+1] = ellipse_intersection(conn_pos[i+num_control_points+1],
+                                                            conn_pos[i+num_control_points],
+                                                            width, height);
+  }
+}
+
+GVector<2> Layout::ellipse_intersection(GVector<2> p0, GVector<2> p1, double width, double height) const {
+  double q = std::pow((p1.Y() - p0.Y())/(p1.X() - p0.X()), 2);
+  double xdiff = std::sqrt(width*width*height*height / (4*height*height + 4*width*width*q));
+  double ydiff = std::sqrt(width*width*height*height / (4*width*width + 4*height*height/q));
+
+  xdiff = std::copysign(xdiff, p1.X() - p0.X());
+  ydiff = std::copysign(ydiff, p1.Y() - p0.Y());
+
+  return {p0.X() + xdiff, p0.Y() + ydiff};
 }
 
 void Layout::normalize(std::vector<GVector<2> >& node_pos, std::vector<GVector<2> >& conn_pos) const {
@@ -158,59 +180,15 @@ void Layout::normalize(std::vector<GVector<2> >& node_pos, std::vector<GVector<2
     ymax = std::max(ymax, pos.Y());
   }
 
-  std::cout << "X: (" << xmin << ", " << xmax << ")\tY: (" << ymin << ", " << ymax << ")" << std::endl;
-
   for(auto& pos : node_pos) {
     pos.X() = (pos.X() - xmin)/(xmax-xmin);
     pos.Y() = (pos.Y() - ymin)/(ymax-ymin);
   }
 
+  adjust_endpoints(conn_pos, rel_node_size*(xmax-xmin), rel_node_size*(ymax-ymin));
+
   for(auto& pos : conn_pos) {
     pos.X() = (pos.X() - xmin)/(xmax-xmin);
     pos.Y() = (pos.Y() - ymin)/(ymax-ymin);
   }
-}
-
-std::vector<GVector<2> > dist_spline(std::vector<GVector<2> > control_points, int num_points) {
-  std::vector<GVector<2> > output;
-
-  // Find distance from start to point i
-  std::vector<double> dist_cumsum{0};
-  dist_cumsum.reserve(control_points.size());
-  for(unsigned int i=0; i<control_points.size()-1; i++) {
-    double dist = (control_points[i] - control_points[i+1]).Mag();
-    dist_cumsum.push_back(dist_cumsum.back() + dist);
-  }
-
-  // Normalize distance from start to point i
-  for(auto& val : dist_cumsum) {
-    val /= dist_cumsum.back();
-  }
-
-  // Calculate each spline point
-  for(int i=0; i<num_points; i++) {
-    double target = double(i)/(num_points-1);
-    const auto iter = std::upper_bound(dist_cumsum.begin(), dist_cumsum.end(), target) - 1;
-    const auto index = iter - dist_cumsum.begin();
-    if(*iter == target) {
-      output.push_back(control_points[index]);
-    } else {
-      double rel_diff = (target - *iter)/(*(iter+1) - *iter);
-      output.push_back(rel_diff*control_points[index+1] + (1-rel_diff)*control_points[index]);
-    }
-  }
-  return output;
-}
-
-std::vector<GVector<2> > Layout::spline(const Connection& conn) const {
-  std::vector<GVector<2> > control_points;
-
-  control_points.reserve(num_control_points + 2);
-  control_points.push_back(nodes[conn.from_index].pos);
-  for(int i=0; i<num_control_points; i++) {
-    control_points.push_back(virtual_nodes[conn.virtual_node_index+i].pos);
-  }
-  control_points.push_back(nodes[conn.to_index].pos);
-
-  return dist_spline(control_points, num_spline_points);
 }

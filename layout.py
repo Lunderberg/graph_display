@@ -2,7 +2,6 @@ import itertools
 import random
 
 import numpy as np
-import scipy.interpolate
 
 class Layout:
     def __init__(self):
@@ -21,7 +20,6 @@ class Layout:
         # List of lists of nodes.
         # Each list corresponds to the virtual nodes within one connection.
         self.virtual_nodes = []
-        self.spline_points = 100
 
     def add_node(self):
         layout_node = LayoutNode()
@@ -218,22 +216,9 @@ class Layout:
         x[-1] = pf[0]
         y[-1] = pf[1]
 
-        t = np.zeros(x.shape)
-        t[1:] = np.sqrt((x[1:]-x[:-1])**2 + (y[1:]-y[:-1])**2)
-        t = np.cumsum(t)
 
-        # All points are identical, don't bother.
-        if t[-1] == 0:
-            x_spline = np.linspace(x[0],x[0],self.spline_points)
-            y_spline = np.linspace(y[0],y[0],self.spline_points)
 
-        else:
-            t /= t[-1]
-            nt = np.linspace(0, 1, self.spline_points)
-            x_spline = scipy.interpolate.spline(t, x, nt)
-            y_spline = scipy.interpolate.spline(t, y, nt)
-
-        return np.array([x_spline, y_spline]).T
+        return np.array([x,y]).T
 
     def _ellipse_intersection(self, ellipse_center, outside_point, width, height):
         x0,y0 = ellipse_center

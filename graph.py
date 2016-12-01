@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib.collections import EllipseCollection
 import matplotlib.pyplot as plt
+import scipy.interpolate
 
 #from layout import Layout
 from clayout import Layout
@@ -13,6 +14,7 @@ class Graph:
 
         self.layout = Layout()
         self.node_size = 0.05
+        self.spline_points = 100
 
         self._connection_lines = []
         self._arrow_heads = []
@@ -54,6 +56,28 @@ class Graph:
                                       init_func = lambda :self._draw_first(axes),
                                       interval=interval, blit=True)
 
+    def _gen_splines(self, connections):
+        for control_points in connections:
+            x = control_points[:,0]
+            y = control_points[:,1]
+
+            t = np.zeros(x.shape)
+            t[1:] = np.sqrt((x[1:]-x[:-1])**2 + (y[1:]-y[:-1])**2)
+            t = np.cumsum(t)
+
+            # All points are identical, don't bother.
+            if t[-1] == 0:
+                x_spline = np.linspace(x[0],x[0],self.spline_points)
+                y_spline = np.linspace(y[0],y[0],self.spline_points)
+
+            else:
+                t /= t[-1]
+                nt = np.linspace(0, 1, self.spline_points)
+                x_spline = scipy.interpolate.spline(t, x, nt)
+                y_spline = scipy.interpolate.spline(t, y, nt)
+
+            yield np.array([x_spline,y_spline]).T
+
     def _draw_first(self, axes):
         axes.clear()
         self._connection_lines.clear()
@@ -71,7 +95,7 @@ class Graph:
                    shrinkA = 0,
                    shrinkB = 0)
 
-        for spline in connections:
+        for spline in self._gen_splines(connections):
             xvals = spline[:,0]
             yvals = spline[:,1]
             self._connection_lines.append(
@@ -103,7 +127,7 @@ class Graph:
         self._node_scatter.set_offsets(node_pos)
 
         for line, arrow_head, spline in zip(self._connection_lines, self._arrow_heads,
-                                            connections):
+                                            self._gen_splines(connections)):
             xvals = spline[:,0]
             yvals = spline[:,1]
             line.set_xdata(xvals)
