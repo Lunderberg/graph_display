@@ -142,57 +142,5 @@ DrawingPositions Layout::positions() const {
     output.connection_points.push_back(nodes[conn.to_index].pos);
   }
 
-  normalize(output.node_pos, output.connection_points);
-
   return output;
-}
-
-void Layout::adjust_endpoints(std::vector<GVector<2> >& conn_pos, double width, double height) const {
-  for(unsigned int i=0; i<conn_pos.size(); i+=(num_control_points+2)) {
-    conn_pos[i] = ellipse_intersection(conn_pos[i], conn_pos[i+1], width, height);
-    conn_pos[i+num_control_points+1] = ellipse_intersection(conn_pos[i+num_control_points+1],
-                                                            conn_pos[i+num_control_points],
-                                                            width, height);
-  }
-}
-
-GVector<2> Layout::ellipse_intersection(GVector<2> p0, GVector<2> p1, double width, double height) const {
-  if(p0 == p1) {
-    return p0;
-  }
-
-  double q = std::pow((p1.Y() - p0.Y())/(p1.X() - p0.X()), 2);
-  double xdiff = std::sqrt(width*width*height*height / (4*height*height + 4*width*width*q));
-  double ydiff = std::sqrt(width*width*height*height / (4*width*width + 4*height*height/q));
-
-  xdiff = std::copysign(xdiff, p1.X() - p0.X());
-  ydiff = std::copysign(ydiff, p1.Y() - p0.Y());
-
-  return {p0.X() + xdiff, p0.Y() + ydiff};
-}
-
-void Layout::normalize(std::vector<GVector<2> >& node_pos, std::vector<GVector<2> >& conn_pos) const {
-  double xmin = std::numeric_limits<double>::max();
-  double xmax = -std::numeric_limits<double>::max();
-  double ymin = std::numeric_limits<double>::max();
-  double ymax = -std::numeric_limits<double>::max();
-
-  for(auto& pos : node_pos) {
-    xmin = std::min(xmin, pos.X());
-    xmax = std::max(xmax, pos.X());
-    ymin = std::min(ymin, pos.Y());
-    ymax = std::max(ymax, pos.Y());
-  }
-
-  for(auto& pos : node_pos) {
-    pos.X() = (pos.X() - xmin)/(xmax-xmin);
-    pos.Y() = (pos.Y() - ymin)/(ymax-ymin);
-  }
-
-  adjust_endpoints(conn_pos, rel_node_size*(xmax-xmin), rel_node_size*(ymax-ymin));
-
-  for(auto& pos : conn_pos) {
-    pos.X() = (pos.X() - xmin)/(xmax-xmin);
-    pos.Y() = (pos.Y() - ymin)/(ymax-ymin);
-  }
 }

@@ -57,6 +57,42 @@ class Graph:
                                       init_func = lambda :self._draw_first(axes),
                                       interval=interval, blit=True)
 
+    def normed_positions(self):
+        node_pos, connections = self.layout.positions()
+
+        xmin = connections[:,:,0].min()
+        xmax = connections[:,:,0].max()
+        ymin = connections[:,:,1].min()
+        ymax = connections[:,:,1].max()
+
+        node_pos[:,0] = (node_pos[:,0] - xmin)/(xmax-xmin)
+        node_pos[:,1] = (node_pos[:,1] - ymin)/(ymax-ymin)
+        connections[:,:,0] = (connections[:,:,0] - xmin)/(xmax-xmin)
+        connections[:,:,1] = (connections[:,:,1] - ymin)/(ymax-ymin)
+
+        w = self.node_size
+        h = self.node_size
+
+        # Adjust the starting/ending point of each connection
+        for center,outside in [(0,1), (-1,-2)]:
+            with np.errstate(invalid='ignore'):
+                q = ((connections[:,outside,1] - connections[:,center,1]) /
+                     (connections[:,outside,0] - connections[:,center,0]))**2
+            xdiff = np.sqrt(w*w*h*h/(4*h*h + 4*w*w*q))
+            ydiff = np.sqrt(w*w*h*h/(4*w*w + 4*h*h/q))
+
+            xdiff *= np.sign(connections[:,outside,0] - connections[:,center,0])
+            ydiff *= np.sign(connections[:,outside,1] - connections[:,center,1])
+
+            xdiff[np.isnan(xdiff)] = 0
+            ydiff[np.isnan(ydiff)] = 0
+
+            connections[:,center,0] += xdiff
+            connections[:,center,1] += ydiff
+
+        return node_pos, connections
+
+
     def _gen_splines(self, connections):
         for control_points in connections:
             x = control_points[:,0]
@@ -84,8 +120,7 @@ class Graph:
         self._connection_lines.clear()
         self._node_scatter = None
 
-
-        node_pos, connections = self.layout.positions()
+        node_pos, connections = self.normed_positions()
 
         self._connection_lines = []
         self._arrow_heads = []
@@ -126,7 +161,7 @@ class Graph:
         for i in range(5):
             self.layout.relax()
 
-        node_pos, connections = self.layout.positions()
+        node_pos, connections = self.normed_positions()
 
         self._node_scatter.set_offsets(node_pos)
 

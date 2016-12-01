@@ -133,20 +133,6 @@ class Layout:
             for node_name in condition[1]:
                 self.nodes[node_name].y = new_y
 
-    def _norm(self, val, range_min, range_max):
-        center = (range_min + range_max)/2.0
-        diff = (range_max - range_min)
-        range_min = center - 0.55*diff
-        range_max = center + 0.55*diff
-
-        output = (val - range_min)/(range_max - range_min)
-        # if range_max == range_min, we get nan, which we map to 0.5
-        if isinstance(output, np.ndarray):
-            output[np.isnan(output)] = 0.5
-        elif range_min == range_max:
-            output = 0.5
-        return output
-
     def positions(self):
         """
         Returns the positions of all nodes and connections, ready to draw.
@@ -163,30 +149,15 @@ class Layout:
         conn_origin = np.array([self.nodes[from_index].pos for (from_index, to_index) in self.connections])
         conn_dest = np.array([self.nodes[to_index].pos for (from_index, to_index) in self.connections])
 
-        xmin = node_pos[:,0].min()
-        xmax = node_pos[:,0].max()
-        ymin = node_pos[:,1].min()
-        ymax = node_pos[:,1].max()
-
-        range_min = np.array([xmin,ymin])
-        range_max = np.array([xmax,ymax])
-
         connections = []
         for i,_ in enumerate(self.connections):
-            new_spline = self._spline(i,
-                                      self.rel_node_size*(xmax-xmin),
-                                      self.rel_node_size*(ymax-ymin))
+            new_spline = self._control_points(i)
             connections.append(new_spline)
-
         connections = np.array(connections)
-
-
-        node_pos = self._norm(node_pos, range_min, range_max)
-        connections = self._norm(connections, range_min, range_max)
 
         return node_pos, connections
 
-    def _spline(self, i, node_x_size, node_y_size):
+    def _control_points(self, i):
         """
         node_x_size, node_y_size are the size in real units of each node.
 
@@ -200,43 +171,12 @@ class Layout:
         x = [p.x for p in control_points]
         x.insert(0, self.nodes[from_index].x)
         x.append(self.nodes[to_index].x)
-        x = np.array(x)
 
         y = [p.y for p in control_points]
         y.insert(0, self.nodes[from_index].y)
         y.append(self.nodes[to_index].y)
-        y = np.array(y)
-
-        p0 = self._ellipse_intersection( (x[0],y[0]), (x[1],y[1]),
-                                         node_x_size, node_y_size)
-        pf = self._ellipse_intersection( (x[-1],y[-1]), (x[-2],y[-2]),
-                                         node_x_size, node_y_size)
-        x[0] = p0[0]
-        y[0] = p0[1]
-        x[-1] = pf[0]
-        y[-1] = pf[1]
-
-
 
         return np.array([x,y]).T
-
-    def _ellipse_intersection(self, ellipse_center, outside_point, width, height):
-        x0,y0 = ellipse_center
-        x1,y1 = outside_point
-
-        if x0==x1 and y0==y1:
-            return ellipse_center
-
-        q = ((y1-y0)/(x1-x0))**2
-        xdiff = np.sqrt(width**2*height**2/(4*height**2 + 4*width**2*q))
-        ydiff = np.sqrt(width**2*height**2/(4*width**2 + 4*height**2/q))
-
-        xdiff *= np.sign(x1-x0)
-        ydiff *= np.sign(y1-y0)
-
-        return (x0+xdiff, y0+ydiff)
-
-
 
 
 

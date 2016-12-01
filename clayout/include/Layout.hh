@@ -52,11 +52,6 @@ private:
   void spring(Node& a, Node& b);
   void pseudo_gravity(Node& a);
 
-  std::vector<GVector<2> > spline(const Connection& conn) const;
-  void adjust_endpoints(std::vector<GVector<2> >& conn_pos, double width, double height) const;
-  GVector<2> ellipse_intersection(GVector<2> p0, GVector<2> p1, double width, double height) const;
-  void normalize(std::vector<GVector<2> >& node_pos, std::vector<GVector<2> >& conn_pos) const;
-
   std::mt19937 gen;
 
   double spring_constant;
