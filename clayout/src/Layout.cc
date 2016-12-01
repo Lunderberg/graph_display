@@ -157,6 +157,10 @@ void Layout::adjust_endpoints(std::vector<GVector<2> >& conn_pos, double width, 
 }
 
 GVector<2> Layout::ellipse_intersection(GVector<2> p0, GVector<2> p1, double width, double height) const {
+  if(p0 == p1) {
+    return p0;
+  }
+
   double q = std::pow((p1.Y() - p0.Y())/(p1.X() - p0.X()), 2);
   double xdiff = std::sqrt(width*width*height*height / (4*height*height + 4*width*width*q));
   double ydiff = std::sqrt(width*width*height*height / (4*width*width + 4*height*height/q));
