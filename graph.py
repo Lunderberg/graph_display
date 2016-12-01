@@ -3,8 +3,12 @@ from matplotlib.collections import EllipseCollection
 import matplotlib.pyplot as plt
 import scipy.interpolate
 
-#from layout import Layout
-from clayout import Layout
+
+try:
+    from clayout import Layout
+except ImportError:
+    from layout import Layout
+
 from fixed_func_animation import FixedFuncAnimation
 
 
@@ -37,19 +41,6 @@ class Graph:
         self.connections.append(conn)
 
         self.layout.add_connection(origin.index, dest.index)
-
-    @property
-    def node_size(self):
-        return self._node_size
-
-    @node_size.setter
-    def node_size(self, val):
-        self._node_size = val
-        self.layout.rel_node_size = val
-
-    @property
-    def nodes(self):
-        return self._nodes.values()
 
     def draw(self, axes, interval=25):
         self._draw_first(axes)

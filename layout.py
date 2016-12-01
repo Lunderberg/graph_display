@@ -13,9 +13,6 @@ class Layout:
         self.repulsion_constant = 0.01
         self.pseudo_gravity_constant = 0.05
 
-        # Size relative to the full extent between min and max in x,y
-        self.rel_node_size = 0.05
-
         self.num_control_points = 2
         # List of lists of nodes.
         # Each list corresponds to the virtual nodes within one connection.
