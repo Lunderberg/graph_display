@@ -14,7 +14,8 @@ for i in range(10):
 
 for i in range(20):
     graph.add_connection(random.randint(0,9),
-                         random.randint(0,9))
+                         random.randint(0,9),
+                         boxed=random.random() < 0.2)
 
 # graph.add_node('Input')
 # graph.add_node('Bias')

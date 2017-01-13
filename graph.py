@@ -1,7 +1,10 @@
 import numpy as np
-from matplotlib.collections import EllipseCollection
-import matplotlib.pyplot as plt
 import scipy.interpolate
+
+import matplotlib.pyplot as plt
+from matplotlib.collections import EllipseCollection
+import matplotlib.patches as patches
+import matplotlib.transforms as transforms
 
 
 try:
@@ -20,6 +23,7 @@ class Graph:
         self.layout = Layout()
         self.node_size = 0.05
         self.spline_points = 100
+        self.box_size = 0.025
 
         self._connection_lines = []
         self._arrow_heads = []
@@ -32,12 +36,18 @@ class Graph:
         self._nodes[node_name] = LogicalNode(node_name, len(self._nodes))
         self.layout.add_node()
 
-    def add_connection(self, origin_name, dest_name, enabled=True, weight=1.0):
+    def add_connection(self, origin_name, dest_name, enabled=True, weight=1.0,
+                       boxed=False, **draw_props):
         origin = self._nodes[origin_name]
         dest = self._nodes[dest_name]
         conn = LogicalConnection(origin, dest)
         conn.enabled = enabled
         conn.weight = weight
+        conn.boxed = boxed
+
+        if 'color' not in draw_props:
+            draw_props['color'] = 'black'
+        conn.draw_props = draw_props
         self.connections.append(conn)
 
         self.layout.add_connection(origin.index, dest.index)
@@ -123,16 +133,31 @@ class Graph:
                    shrinkB = 0,
                    animated = True)
 
-        for spline in self._gen_splines(connections):
+        for log_conn,spline in zip(self.connections,self._gen_splines(connections)):
             xvals = spline[:,0]
             yvals = spline[:,1]
+
+            # Draw the spline itself
             self._connection_lines.append(
-                axes.plot(xvals, yvals, zorder=1, color='black', animated=True)[0])
+                axes.plot(xvals, yvals, zorder=1,  animated=True, **log_conn.draw_props)[0])
+            # Arrow at the end of the spline
             self._arrow_heads.append(
                 axes.annotate('', xy=(xvals[-1], yvals[-1]), xycoords='data',
                               xytext=(xvals[-2], yvals[-2]), textcoords='data',
                               animated=True,
                               arrowprops=opt))
+
+            # Box in the middle of the spline.
+            if log_conn.boxed:
+                box_loc, box_angle = self._get_box_prop(spline)
+                rect = patches.Rectangle((0,0), self.box_size, self.box_size, animated=True,
+                                         facecolor=log_conn.draw_props['color'])
+                rect.set_transform(transforms.Affine2D()
+                                   .translate(-self.box_size/2,-self.box_size/2)
+                                   .rotate(box_angle)
+                                   .translate(*box_loc) + axes.transData)
+                log_conn.rect = rect
+                axes.add_patch(rect)
 
         self._node_scatter = EllipseCollection(
             offsets=node_pos,
@@ -148,6 +173,22 @@ class Graph:
 
         return self._connection_lines + self._arrow_heads + [self._node_scatter]
 
+    def _get_box_prop(self,spline):
+        npoints = spline.shape[0]
+        if npoints % 2 == 0:
+            a = spline[npoints//2]
+            b = spline[npoints//2 + 1]
+            box_loc = (a+b)/2.0
+            box_angle = np.arctan2(b[1]-a[1],b[0]-a[0])
+        else:
+            a = spline[npoints//2 - 1]
+            b = spline[npoints//2]
+            c = spline[npoints//2 + 1]
+            box_loc = b
+            box_angle = np.arctan2(c[1]-a[1],c[0]-a[0])
+
+        return box_loc, box_angle
+
     def _update(self, frame_num):
         for i in range(5):
             self.layout.relax()
@@ -156,8 +197,10 @@ class Graph:
 
         self._node_scatter.set_offsets(node_pos)
 
-        for line, arrow_head, spline in zip(self._connection_lines, self._arrow_heads,
-                                            self._gen_splines(connections)):
+        boxes = []
+
+        for line, arrow_head, spline, log_conn in zip(self._connection_lines, self._arrow_heads,
+                                                      self._gen_splines(connections), self.connections):
             xvals = spline[:,0]
             yvals = spline[:,1]
             line.set_xdata(xvals)
@@ -165,7 +208,20 @@ class Graph:
             arrow_head.xy = (xvals[-1], yvals[-1])
             arrow_head.xyann = (xvals[-2], yvals[-2])
 
-        return self._connection_lines + self._arrow_heads + [self._node_scatter]
+            if log_conn.rect:
+                axes = log_conn.rect.axes
+                box_loc, box_angle = self._get_box_prop(spline)
+                log_conn.rect.set_transform(
+                    transforms.Affine2D()
+                    .translate(-self.box_size/2,-self.box_size/2)
+                    .rotate(box_angle)
+                    .translate(*box_loc)
+                    + axes.transData
+                    )
+
+                boxes.append(log_conn.rect)
+
+        return self._connection_lines + self._arrow_heads + [self._node_scatter] + boxes
 
 
 class LogicalNode:
@@ -179,3 +235,6 @@ class LogicalConnection:
         self.dest = dest
         self.enabled = True
         self.weight = 1.0
+        self.draw_props = {}
+        self.boxed = False
+        self.rect = None
