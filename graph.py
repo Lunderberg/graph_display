@@ -29,12 +29,30 @@ class Graph:
         self._arrow_heads = []
         self._node_scatter = None
 
-    def add_node(self, node_name):
+    def add_node(self, node_name, color='blue'):
         if node_name in self._nodes:
             raise ValueError('Node "{}" already exists'.format(node_name))
 
-        self._nodes[node_name] = LogicalNode(node_name, len(self._nodes))
+        self._nodes[node_name] = LogicalNode(node_name, len(self._nodes), color)
         self.layout.add_node()
+
+    def fix_x(self, node_name, x_pos):
+        node = self._nodes[node_name]
+        self.layout.fix_x(node.index, x_pos)
+
+    def fix_y(self, node_name, y_pos):
+        node = self._nodes[node_name]
+        self.layout.fix_y(node.index, y_pos)
+
+    def same_x(self, node_name_a, node_name_b):
+        node_a = self._nodes[node_name_a]
+        node_b = self._nodes[node_name_b]
+        self.layout.same_x(node_a.index, node_b.index)
+
+    def same_y(self, node_name_a, node_name_b):
+        node_a = self._nodes[node_name_a]
+        node_b = self._nodes[node_name_b]
+        self.layout.same_y(node_a.index, node_b.index)
 
     def add_connection(self, origin_name, dest_name, enabled=True, weight=1.0,
                        boxed=False, **draw_props):
@@ -159,10 +177,11 @@ class Graph:
                 log_conn.rect = rect
                 axes.add_patch(rect)
 
+        nodecolors = [node.color for node in sorted(self._nodes.values(),key=lambda node:node.index)]
         self._node_scatter = EllipseCollection(
             offsets=node_pos,
             widths=self.node_size, heights=self.node_size, angles=0, units='xy',
-            facecolors='blue', edgecolor='black',
+            facecolors=nodecolors, edgecolor='black',
             zorder=2,
             transOffset=axes.transData, animated=True)
         axes.add_collection(self._node_scatter)
@@ -225,9 +244,10 @@ class Graph:
 
 
 class LogicalNode:
-    def __init__(self, name, index):
+    def __init__(self, name, index, color):
         self.name = name
         self.index = index
+        self.color = color
 
 class LogicalConnection:
     def __init__(self, origin, dest):

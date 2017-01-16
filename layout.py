@@ -52,7 +52,7 @@ class Layout:
         return [LayoutNode(initial + num*(final-initial), mass=mass, charge=charge)
                 for num in uniform]
 
-    def _all_nodes(self, with_actual=True, with_virtual=False):
+    def _all_nodes(self, with_virtual=False):
         yield from self.nodes
         if with_virtual:
             yield from self._all_virtual_nodes()
@@ -76,13 +76,7 @@ class Layout:
                 yield (self.nodes[conn[0]], control_points[0])
                 yield (self.nodes[conn[1]], control_points[-1])
 
-    def add_condition(self, condition):
-        self.conditions.append(condition)
-
-    def relax(self, conditions=None):
-        conditions = conditions if conditions is not None else []
-        all_conditions = itertools.chain(self.conditions, conditions)
-
+    def relax(self):
         # Electrostatic repulsion between pairs
         for (node_a, node_b) in self._all_node_pairs():
             disp = node_b.pos - node_a.pos
@@ -110,25 +104,45 @@ class Layout:
             node.pos -= self.pseudo_gravity_constant*len(self.nodes)/(1 + np.exp(-np.abs(disp)))
 
         # Apply conditions
-        for condition in all_conditions:
-            self._apply_condition(condition)
+        self._apply_conditions()
 
-    def _apply_condition(self, condition):
-        if condition[0] == 'fixed_x':
-            self.nodes[condition[1]].x = condition[2]
+    def fix_x(self, node_index, rel_x):
+        self.conditions.append(('fixed_x',node_index,rel_x))
 
-        elif condition[0] == 'fixed_y':
-            self.nodes[condition[1]].y = condition[2]
+    def fix_y(self, node_index, rel_y):
+        self.conditions.append(('fixed_y',node_index,rel_y))
 
-        elif condition[0] == 'same_x':
-            new_x = sum(self.nodes[node_name].x for node_name in condition[1])/len(condition[1])
-            for node_name in condition[1]:
-                self.nodes[node_name].x = new_x
+    def same_x(self, node_index_a, node_index_b):
+        self.conditions.append(('same_x',node_index_a, node_index_b))
 
-        elif condition[0] == 'same_y':
-            new_y = sum(self.nodes[node_name].y for node_name in condition[1])/len(condition[1])
-            for node_name in condition[1]:
-                self.nodes[node_name].y = new_y
+    def same_y(self, node_index_a, node_index_b):
+        self.conditions.append(('same_y',node_index_a, node_index_b))
+
+    def _apply_conditions(self):
+        xmin = min(node.x for node in self._all_nodes())
+        xmax = max(node.x for node in self._all_nodes())
+        range_x = xmax - xmin
+
+        ymin = min(node.y for node in self._all_nodes())
+        ymax = max(node.y for node in self._all_nodes())
+        range_y = ymax - ymin
+
+        for condition in self.conditions:
+            if condition[0] == 'fixed_x':
+                self.nodes[condition[1]].x = xmin + range_x*condition[2]
+
+            elif condition[0] == 'fixed_y':
+                self.nodes[condition[1]].y = ymin + range_y*condition[2]
+
+            elif condition[0] == 'same_x':
+                new_x = sum(self.nodes[node_name].x for node_name in condition[1:])/len(condition[1:])
+                for node_name in condition[1:]:
+                    self.nodes[node_name].x = new_x
+
+            elif condition[0] == 'same_y':
+                new_y = sum(self.nodes[node_name].y for node_name in condition[1:])/len(condition[1:])
+                for node_name in condition[1:]:
+                    self.nodes[node_name].y = new_y
 
     def positions(self):
         """

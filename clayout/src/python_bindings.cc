@@ -25,6 +25,11 @@ PYBIND11_PLUGIN(clayout) {
     .def("add_connection", &Layout::add_connection)
     .def("relax", &Layout::relax)
 
+    .def("fix_x", &Layout::fix_x)
+    .def("fix_y", &Layout::fix_y)
+    .def("same_x", &Layout::same_x)
+    .def("same_y", &Layout::same_y)
+
     .def("reset_node", &Layout::reset_node)
     .def("reset_edges", &Layout::reset_edges)
 

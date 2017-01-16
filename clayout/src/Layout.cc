@@ -89,6 +89,8 @@ void Layout::relax() {
   for(auto& node : nodes) {
     pseudo_gravity(node);
   }
+
+  apply_constraints();
 }
 
 void Layout::electrostatic(Node& a, Node& b) {
@@ -122,6 +124,42 @@ void Layout::pseudo_gravity(Node& a) {
     / (1 + 1/disp.Mag());
 
   a.pos += force;
+}
+
+void Layout::apply_constraints() {
+  // Fixed x positions
+  auto x_elements = std::minmax_element(nodes.begin(), nodes.end(),
+                                        [](const Node& a, const Node& b) { return a.pos.X() < b.pos.X(); } );
+  double xmin = x_elements.first->pos.X();
+  double xmax = x_elements.second->pos.X();
+  double xrange = xmax - xmin;
+  for(auto& con : fixed_x_pos) {
+    nodes[con.first].pos.X() = xmin + xrange*con.second;
+  }
+
+  // Fixed y positions
+  auto y_elements = std::minmax_element(nodes.begin(), nodes.end(),
+                                        [](const Node& a, const Node& b) { return a.pos.Y() < b.pos.Y(); } );
+  double ymin = y_elements.first->pos.Y();
+  double ymax = y_elements.second->pos.Y();
+  double yrange = ymax - ymin;
+  for(auto& con : fixed_y_pos) {
+    nodes[con.first].pos.Y() = ymin + yrange*con.second;
+  }
+
+  // Same x positions
+  for(auto& con : same_x_pos) {
+    double new_x = (nodes[con.first].pos.X() + nodes[con.second].pos.X())/2;
+    nodes[con.first].pos.X() = new_x;
+    nodes[con.second].pos.X() = new_x;
+  }
+
+  // Same y positions
+  for(auto& con : same_y_pos) {
+    double new_y = (nodes[con.first].pos.Y() + nodes[con.second].pos.Y())/2;
+    nodes[con.first].pos.Y() = new_y;
+    nodes[con.second].pos.Y() = new_y;
+  }
 }
 
 DrawingPositions Layout::positions() const {
