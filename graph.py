@@ -1,3 +1,6 @@
+import os
+import warnings
+
 import numpy as np
 import scipy.interpolate
 
@@ -10,6 +13,10 @@ import matplotlib.transforms as transforms
 try:
     from clayout import Layout
 except ImportError:
+    warnings.warn(
+        'Compiled version not found, falling back to pure python\n' +
+        'Run "scons" in {} for more speed'.format(os.path.dirname(__file__))
+    )
     from layout import Layout
 
 from fixed_func_animation import FixedFuncAnimation
