@@ -31,10 +31,12 @@ class Graph:
         self.node_size = 0.05
         self.spline_points = 100
         self.box_size = 0.025
+        self.convergence_threshold = 1e-5
 
         self._connection_lines = []
         self._arrow_heads = []
         self._node_scatter = None
+        self._reset_convergence()
 
     def add_node(self, node_name, color='blue'):
         if node_name in self._nodes:
@@ -42,24 +44,29 @@ class Graph:
 
         self._nodes[node_name] = LogicalNode(node_name, len(self._nodes), color)
         self.layout.add_node()
+        self._reset_convergence()
 
     def fix_x(self, node_name, x_pos):
         node = self._nodes[node_name]
         self.layout.fix_x(node.index, x_pos)
+        self._reset_convergence()
 
     def fix_y(self, node_name, y_pos):
         node = self._nodes[node_name]
         self.layout.fix_y(node.index, y_pos)
+        self._reset_convergence()
 
     def same_x(self, node_name_a, node_name_b):
         node_a = self._nodes[node_name_a]
         node_b = self._nodes[node_name_b]
         self.layout.same_x(node_a.index, node_b.index)
+        self._reset_convergence()
 
     def same_y(self, node_name_a, node_name_b):
         node_a = self._nodes[node_name_a]
         node_b = self._nodes[node_name_b]
         self.layout.same_y(node_a.index, node_b.index)
+        self._reset_convergence()
 
     def add_connection(self, origin_name, dest_name, enabled=True, weight=1.0,
                        boxed=False, **draw_props):
@@ -76,12 +83,30 @@ class Graph:
         self.connections.append(conn)
 
         self.layout.add_connection(origin.index, dest.index)
+        self._reset_convergence()
 
     def draw(self, axes, interval=25):
-        self._draw_first(axes)
+        #self._draw_first(axes)
         self.ani = FixedFuncAnimation(axes.figure, self._update,
                                       init_func = lambda :self._draw_first(axes),
-                                      interval=interval, blit=True)
+                                      interval=interval, blit=True, repeat=False)
+
+    def _reset_convergence(self):
+        # Currently, too much work for something that isn't used.  The
+        # _draw_first and _update functions would need to be merged,
+        # so that new nodes can be added.  In addition, if the layout
+        # has already converged, the animation needs to be restarted.
+        # After calling FuncAnimation._stop(), calls to _start() do
+        # not work.  This may be adjustable by overriding _stop and
+        # commenting out the removal of event_source.  This does raise
+        # other issues, though, as then the reference is not dropped
+        # when the canvas is closed.
+        if hasattr(self,'ani'):
+            raise NotImplementedError('Cannot modify graph after display')
+
+        self.prev_positions = None
+        self.converged = False
+
 
     def normed_positions(self):
         node_pos, connections = self.layout.positions()
@@ -221,6 +246,8 @@ class Graph:
 
         node_pos, connections = self.normed_positions()
 
+        self._check_for_convergence(node_pos, connections)
+
         self._node_scatter.set_offsets(node_pos)
 
         boxes = []
@@ -248,6 +275,17 @@ class Graph:
                 boxes.append(log_conn.rect)
 
         return self._connection_lines + self._arrow_heads + [self._node_scatter] + boxes
+
+    def _check_for_convergence(self, node_pos, connections):
+        if self.prev_positions is not None:
+            prev_node_pos, prev_connections = self.prev_positions
+            max_change = max(np.abs(node_pos - prev_node_pos).max(),
+                             np.abs(connections - prev_connections).max())
+            if max_change < self.convergence_threshold:
+                self.converged = True
+                self.ani._stop()
+
+        self.prev_positions = node_pos, connections
 
 
 class LogicalNode:
