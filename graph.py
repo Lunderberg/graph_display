@@ -9,7 +9,6 @@ from matplotlib.collections import EllipseCollection
 import matplotlib.patches as patches
 import matplotlib.transforms as transforms
 
-
 try:
     from clayout import Layout
 except ImportError:
@@ -33,8 +32,6 @@ class Graph:
         self.box_size = 0.025
         self.convergence_threshold = 1e-5
 
-        self._connection_lines = []
-        self._arrow_heads = []
         self._node_scatter = None
         self._reset_convergence()
 
@@ -72,7 +69,7 @@ class Graph:
                        boxed=False, **draw_props):
         origin = self._nodes[origin_name]
         dest = self._nodes[dest_name]
-        conn = LogicalConnection(origin, dest)
+        conn = LogicalConnection(self, origin, dest)
         conn.enabled = enabled
         conn.weight = weight
         conn.boxed = boxed
@@ -86,6 +83,7 @@ class Graph:
         self._reset_convergence()
 
     def draw(self, axes, interval=25):
+        self.axes = axes
         #self._draw_first(axes)
         self.ani = FixedFuncAnimation(axes.figure, self._update,
                                       init_func = lambda :self._draw_first(axes),
@@ -168,48 +166,9 @@ class Graph:
 
     def _draw_first(self, axes):
         axes.clear()
-        self._connection_lines.clear()
         self._node_scatter = None
 
         node_pos, connections = self.normed_positions()
-
-        self._connection_lines = []
-        self._arrow_heads = []
-
-        opt = dict(color = 'black',
-                   arrowstyle = 'simple, head_width=.75, head_length=.75',
-                   connectionstyle = 'arc3, rad=0',
-                   shrinkA = 0,
-                   shrinkB = 0,
-                   animated = True)
-
-        for log_conn,spline in zip(self.connections,self._gen_splines(connections)):
-            xvals = spline[:,0]
-            yvals = spline[:,1]
-
-            # Draw the spline itself
-            self._connection_lines.append(
-                axes.plot(xvals, yvals, zorder=1,  animated=True, **log_conn.draw_props)[0])
-            # Arrow at the end of the spline
-            self._arrow_heads.append(
-                axes.annotate('', xy=(xvals[-1], yvals[-1]), xycoords='data',
-                              xytext=((xvals[-2] + xvals[-1]*99)/100,
-                                      (yvals[-2] + yvals[-1]*99)/100),
-                              textcoords='data',
-                              animated=True,
-                              arrowprops=opt))
-
-            # Box in the middle of the spline.
-            if log_conn.boxed:
-                box_loc, box_angle = self._get_box_prop(spline)
-                rect = patches.Rectangle((0,0), self.box_size, self.box_size, animated=True,
-                                         facecolor=log_conn.draw_props['color'])
-                rect.set_transform(transforms.Affine2D()
-                                   .translate(-self.box_size/2,-self.box_size/2)
-                                   .rotate(box_angle)
-                                   .translate(*box_loc) + axes.transData)
-                log_conn.rect = rect
-                axes.add_patch(rect)
 
         nodecolors = [node.color for node in sorted(self._nodes.values(),key=lambda node:node.index)]
         self._node_scatter = EllipseCollection(
@@ -224,23 +183,7 @@ class Graph:
         axes.set_ylim(-0.1, 1.1)
         axes.axis('off')
 
-        return self._connection_lines + self._arrow_heads + [self._node_scatter]
-
-    def _get_box_prop(self,spline):
-        npoints = spline.shape[0]
-        if npoints % 2 == 0:
-            a = spline[npoints//2]
-            b = spline[npoints//2 + 1]
-            box_loc = (a+b)/2.0
-            box_angle = np.arctan2(b[1]-a[1],b[0]-a[0])
-        else:
-            a = spline[npoints//2 - 1]
-            b = spline[npoints//2]
-            c = spline[npoints//2 + 1]
-            box_loc = b
-            box_angle = np.arctan2(c[1]-a[1],c[0]-a[0])
-
-        return box_loc, box_angle
+        return [self._node_scatter]
 
     def _update(self, frame_num):
         for i in range(5):
@@ -252,32 +195,14 @@ class Graph:
 
         self._node_scatter.set_offsets(node_pos)
 
-        boxes = []
+        updated = [self._node_scatter]
 
-        for line, arrow_head, spline, log_conn in zip(self._connection_lines, self._arrow_heads,
-                                                      self._gen_splines(connections), self.connections):
-            xvals = spline[:,0]
-            yvals = spline[:,1]
-            line.set_xdata(xvals)
-            line.set_ydata(yvals)
-            arrow_head.xy = (xvals[-1], yvals[-1])
-            arrow_head.xyann = ((xvals[-2] + xvals[-1]*99)/100,
-                                (yvals[-2] + yvals[-1]*99)/100)
+        for spline, log_conn in zip(self._gen_splines(connections), self.connections):
+            updated.extend(
+                log_conn.update(self.axes, spline)
+            )
 
-            if log_conn.rect:
-                axes = log_conn.rect.axes
-                box_loc, box_angle = self._get_box_prop(spline)
-                log_conn.rect.set_transform(
-                    transforms.Affine2D()
-                    .translate(-self.box_size/2,-self.box_size/2)
-                    .rotate(box_angle)
-                    .translate(*box_loc)
-                    + axes.transData
-                    )
-
-                boxes.append(log_conn.rect)
-
-        return self._connection_lines + self._arrow_heads + [self._node_scatter] + boxes
+        return updated
 
     def _check_for_convergence(self, node_pos, connections):
         if self.prev_positions is not None:
@@ -298,11 +223,79 @@ class LogicalNode:
         self.color = color
 
 class LogicalConnection:
-    def __init__(self, origin, dest):
+    def __init__(self, graph, origin, dest):
+        self.graph = graph
         self.origin = origin
         self.dest = dest
+
         self.enabled = True
         self.weight = 1.0
         self.draw_props = {}
         self.boxed = False
+
         self.rect = None
+        self.spline = None
+        self.arrow_head = None
+
+    def update(self, axes, spline):
+        if self.spline is None:
+            self.spline = axes.plot([0,0], [0,0], zorder=1, animated=True,
+                                    **self.draw_props)[0]
+
+        if self.boxed and self.rect is None:
+            self.rect = patches.Rectangle((0,0), self.graph.box_size, self.graph.box_size,
+                                          animated=True, facecolor=self.draw_props['color'])
+            axes.add_patch(self.rect)
+
+        if self.arrow_head is None:
+            arrowprops = dict(color = self.draw_props['color'],
+                              arrowstyle = 'simple, head_width=.75, head_length=.75',
+                              connectionstyle = 'arc3, rad=0',
+                              shrinkA = 0,
+                              shrinkB = 0,
+                              animated = True)
+            self.arrow_head = axes.annotate('', xy=(0,0), xycoords='data',
+                                            xytext=(0,0), textcoords='data',
+                                            animated=True,
+                                            arrowprops=arrowprops,
+                                            )
+
+        xvals = spline[:,0]
+        yvals = spline[:,1]
+        self.spline.set_xdata(xvals)
+        self.spline.set_ydata(yvals)
+
+        self.arrow_head.xy = (xvals[-1], yvals[-1])
+        self.arrow_head.xyann = ((xvals[-2] + xvals[-1]*99)/100,
+                                 (yvals[-2] + yvals[-1]*99)/100)
+
+        updated = [self.spline, self.arrow_head]
+
+        if self.rect:
+            box_loc, box_angle = self._get_box_prop(spline)
+            self.rect.set_transform(
+                transforms.Affine2D()
+                .translate(-self.box_size/2,-self.box_size/2)
+                .rotate(box_angle)
+                .translate(*box_loc)
+                + axes.transData
+            )
+            updated.append(self.rect)
+
+        return updated
+
+    def _get_box_prop(self,spline):
+        npoints = spline.shape[0]
+        if npoints % 2 == 0:
+            a = spline[npoints//2]
+            b = spline[npoints//2 + 1]
+            box_loc = (a+b)/2.0
+            box_angle = np.arctan2(b[1]-a[1],b[0]-a[0])
+        else:
+            a = spline[npoints//2 - 1]
+            b = spline[npoints//2]
+            c = spline[npoints//2 + 1]
+            box_loc = b
+            box_angle = np.arctan2(c[1]-a[1],c[0]-a[0])
+
+        return box_loc, box_angle
