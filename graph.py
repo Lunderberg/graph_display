@@ -193,7 +193,9 @@ class Graph:
             # Arrow at the end of the spline
             self._arrow_heads.append(
                 axes.annotate('', xy=(xvals[-1], yvals[-1]), xycoords='data',
-                              xytext=(xvals[-2], yvals[-2]), textcoords='data',
+                              xytext=((xvals[-2] + xvals[-1]*99)/100,
+                                      (yvals[-2] + yvals[-1]*99)/100),
+                              textcoords='data',
                               animated=True,
                               arrowprops=opt))
 
@@ -259,7 +261,8 @@ class Graph:
             line.set_xdata(xvals)
             line.set_ydata(yvals)
             arrow_head.xy = (xvals[-1], yvals[-1])
-            arrow_head.xyann = (xvals[-2], yvals[-2])
+            arrow_head.xyann = ((xvals[-2] + xvals[-1]*99)/100,
+                                (yvals[-2] + yvals[-1]*99)/100)
 
             if log_conn.rect:
                 axes = log_conn.rect.axes
