@@ -166,24 +166,12 @@ class Graph:
 
     def _draw_first(self, axes):
         axes.clear()
-        self._node_scatter = None
 
-        node_pos, connections = self.normed_positions()
+        self.axes.set_xlim(-0.1, 1.1)
+        self.axes.set_ylim(-0.1, 1.1)
+        self.axes.axis('off')
 
-        nodecolors = [node.color for node in sorted(self._nodes.values(),key=lambda node:node.index)]
-        self._node_scatter = EllipseCollection(
-            offsets=node_pos,
-            widths=self.node_size, heights=self.node_size, angles=0, units='xy',
-            facecolors=nodecolors, edgecolor='black',
-            zorder=2,
-            transOffset=axes.transData, animated=True)
-        axes.add_collection(self._node_scatter)
-
-        axes.set_xlim(-0.1, 1.1)
-        axes.set_ylim(-0.1, 1.1)
-        axes.axis('off')
-
-        return [self._node_scatter]
+        return []
 
     def _update(self, frame_num):
         for i in range(5):
@@ -193,16 +181,35 @@ class Graph:
 
         self._check_for_convergence(node_pos, connections)
 
-        self._node_scatter.set_offsets(node_pos)
+        updated = []
 
-        updated = [self._node_scatter]
+        updated.extend(self._update_nodes(node_pos))
 
-        for spline, log_conn in zip(self._gen_splines(connections), self.connections):
+        for spline, log_conn in zip(self._gen_splines(connections),
+                                    self.connections):
             updated.extend(
                 log_conn.update(self.axes, spline)
             )
 
         return updated
+
+    def _update_nodes(self, node_pos):
+        if self._node_scatter is None:
+            self._node_scatter = EllipseCollection(
+                offsets=[[]],
+                widths=self.node_size, heights=self.node_size, units='xy',
+                angles=0,
+                edgecolor='black', zorder=2,
+                transOffset=self.axes.transData, animated=True)
+            self.axes.add_collection(self._node_scatter)
+        
+        self._node_scatter.set_offsets(node_pos)
+        self._node_scatter.set_facecolors(
+            [node.color for node in sorted(self._nodes.values(),
+                                           key=lambda node:node.index)]
+        )
+
+        return [self._node_scatter]
 
     def _check_for_convergence(self, node_pos, connections):
         if self.prev_positions is not None:
