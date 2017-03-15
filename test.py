@@ -17,10 +17,10 @@ graph = Graph()
 #                          random.randint(0,9),
 #                          boxed=random.random() < 0.2)
 
-graph.add_node('Input', color='green')
-graph.add_node('Bias', color='green')
-graph.add_node('Hidden')
-graph.add_node('Output', color='red')
+graph.add_node('Input', color='green', text='Input')
+graph.add_node('Bias', color='green', text='Bias')
+graph.add_node('Hidden', text='Hidden')
+graph.add_node('Output', color='red', text='Output')
 
 graph.add_connection('Input', 'Output')
 graph.add_connection('Input', 'Hidden')
