@@ -10,8 +10,8 @@
 
 namespace py = pybind11;
 
-PYBIND11_PLUGIN(clayout) {
-  py::module m("clayout", "Stuff in C++");
+PYBIND11_MODULE(clayout, m) {
+  m.doc() = "Layout implemented in C++";
 
   py::class_<GVector<2> >(m, "GVector2")
     .def(py::init<>())
@@ -42,7 +42,7 @@ PYBIND11_PLUGIN(clayout) {
              sizeof(double),
              py::format_descriptor<double>::format(),
              2,
-             { pos.node_pos.size(), 2 },
+             { (int)pos.node_pos.size(), 2 },
              { 2*sizeof(double), sizeof(double) }
            );
 
@@ -52,7 +52,7 @@ PYBIND11_PLUGIN(clayout) {
              sizeof(double),
              py::format_descriptor<double>::format(),
              3,
-             { num_xy_points / pos.num_points_per_connection, pos.num_points_per_connection, 2 },
+             { int(num_xy_points / pos.num_points_per_connection), int(pos.num_points_per_connection), 2 },
              { 2*pos.num_points_per_connection*sizeof(double),
                  2*sizeof(double), sizeof(double) }
            );
@@ -62,7 +62,4 @@ PYBIND11_PLUGIN(clayout) {
          })
 
     .def_property("rel_node_size", &Layout::get_rel_node_size, &Layout::set_rel_node_size);
-
-
-  return m.ptr();
 }
