@@ -1,3 +1,0 @@
-[submodule "clayout/include/pybind11"]
-	path = clayout/include/pybind11
-	url = https://github.com/pybind/pybind11
