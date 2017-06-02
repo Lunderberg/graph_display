@@ -245,6 +245,7 @@ class LogicalConnection:
         self.graph = graph
         self.origin = origin
         self.dest = dest
+        self.box_size = 0.025
 
         self.enabled = True
         self.weight = 1.0
