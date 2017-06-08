@@ -114,7 +114,6 @@ class Graph:
             raise NotImplementedError('Cannot modify graph after display')
 
         self.prev_positions = None
-        self.converged = False
 
 
     def normed_positions(self):
@@ -147,8 +146,6 @@ class Graph:
 
         node_pos, connections = self.normed_positions()
 
-        self._check_for_convergence(node_pos, connections)
-
         updated = []
 
         for pos, log_node in zip(node_pos, self.nodes):
@@ -157,6 +154,12 @@ class Graph:
         for control_points, log_conn in zip(connections, self.connections):
             updated.extend(log_conn.update(self.axes, control_points))
 
+        # _check_for_convergence needs to be last, as the .update
+        # functions may modify the node_pos and connections list.
+        # _check_for_convergence needs to run on the modified
+        # versions.
+        self._check_for_convergence(node_pos, connections)
+
         return updated
 
     def _check_for_convergence(self, node_pos, connections):
@@ -164,9 +167,9 @@ class Graph:
             prev_node_pos, prev_connections = self.prev_positions
             max_change = max(np.abs(node_pos - prev_node_pos).max(),
                              np.abs(connections - prev_connections).max())
+
             if max_change < self.convergence_threshold:
-                self.converged = True
-                self.ani._stop()
+                self.stop()
 
         self.prev_positions = node_pos, connections
 
