@@ -91,10 +91,14 @@ class Graph:
 
     def draw(self, axes, interval=25):
         self.axes = axes
-        #self._draw_first(axes)
+        self._draw_first(axes)
         self.ani = FixedFuncAnimation(axes.figure, self._update,
                                       init_func = lambda :self._draw_first(axes),
                                       interval=interval, blit=True, repeat=False)
+
+    def stop(self):
+        self.ani._stop()
+        del self.ani
 
     def _reset_convergence(self):
         # Currently, too much work for something that isn't used.  The
