@@ -10,6 +10,8 @@
 
 namespace py = pybind11;
 
+using namespace clayout;
+
 PYBIND11_MODULE(clayout, m) {
   m.doc() = "Layout implemented in C++";
 

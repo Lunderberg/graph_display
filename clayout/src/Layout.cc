@@ -3,12 +3,14 @@
 #include <algorithm>
 #include <iostream>
 
-Layout::Layout()
+using namespace clayout;
+
+clayout::Layout::Layout()
   : gen(std::random_device()()),
     spring_constant(0.01), repulsion_constant(0.01), pseudo_gravity_constant(0.01),
     num_control_points(2), num_spline_points(10), rel_node_size(0.05) { }
 
-void Layout::add_node() {
+void clayout::Layout::add_node() {
   Node new_node;
   new_node.pos.X() = std::uniform_real_distribution<>(0,1)(gen);
   new_node.pos.Y() = std::uniform_real_distribution<>(0,1)(gen);
@@ -17,7 +19,7 @@ void Layout::add_node() {
   nodes.push_back(new_node);
 }
 
-void Layout::add_connection(int from_index, int to_index) {
+void clayout::Layout::add_connection(int from_index, int to_index) {
   Connection new_connection;
   new_connection.from_index = from_index;
   new_connection.to_index = to_index;
@@ -25,7 +27,7 @@ void Layout::add_connection(int from_index, int to_index) {
   connections.push_back(new_connection);
 }
 
-void Layout::gen_control_points(Connection& conn) {
+void clayout::Layout::gen_control_points(Connection& conn) {
   const GVector<2> initial = nodes[conn.from_index].pos;
   const GVector<2> final = nodes[conn.to_index].pos;
   conn.virtual_node_index = virtual_nodes.size();
@@ -39,7 +41,7 @@ void Layout::gen_control_points(Connection& conn) {
   }
 }
 
-void Layout::reset_node() {
+void clayout::Layout::reset_node() {
   for(auto& node : nodes) {
     node.pos.X() = std::uniform_real_distribution<>(0,1)(gen);
     node.pos.Y() = std::uniform_real_distribution<>(0,1)(gen);
@@ -47,14 +49,14 @@ void Layout::reset_node() {
   reset_edges();
 }
 
-void Layout::reset_edges() {
+void clayout::Layout::reset_edges() {
   virtual_nodes.clear();
   for(auto& conn : connections) {
     gen_control_points(conn);
   }
 }
 
-void Layout::relax() {
+void clayout::Layout::relax() {
   for(unsigned int i=0; i<nodes.size(); i++) {
     for(unsigned int j=1; j<nodes.size(); j++) {
       electrostatic(nodes[i], nodes[j]);
@@ -93,7 +95,7 @@ void Layout::relax() {
   apply_constraints();
 }
 
-void Layout::electrostatic(Node& a, Node& b) {
+void clayout::Layout::electrostatic(Node& a, Node& b) {
   auto disp = b.pos - a.pos;
   auto dist2 = disp*disp;
 
@@ -107,7 +109,7 @@ void Layout::electrostatic(Node& a, Node& b) {
   b.pos += force/b.mass;
 }
 
-void Layout::spring(Node& a, Node& b) {
+void clayout::Layout::spring(Node& a, Node& b) {
   auto disp = b.pos - a.pos;
   auto force = -spring_constant * disp;
 
@@ -115,7 +117,7 @@ void Layout::spring(Node& a, Node& b) {
   b.pos += force/b.mass;
 }
 
-void Layout::pseudo_gravity(Node& a) {
+void clayout::Layout::pseudo_gravity(Node& a) {
   auto disp = a.pos;
   // auto force = pseudo_gravity_constant * nodes.size() *
   //   disp.UnitVector() / (1 + std::exp(-disp.Mag()));
@@ -126,7 +128,7 @@ void Layout::pseudo_gravity(Node& a) {
   a.pos += force;
 }
 
-void Layout::apply_constraints() {
+void clayout::Layout::apply_constraints() {
   // Fixed x positions
   auto x_elements = std::minmax_element(nodes.begin(), nodes.end(),
                                         [](const Node& a, const Node& b) { return a.pos.X() < b.pos.X(); } );
@@ -162,7 +164,7 @@ void Layout::apply_constraints() {
   }
 }
 
-DrawingPositions Layout::positions() const {
+DrawingPositions clayout::Layout::positions() const {
   DrawingPositions output;
 
   output.node_pos.reserve(nodes.size());
